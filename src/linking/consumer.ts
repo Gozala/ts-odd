@@ -241,7 +241,8 @@ export const handleSessionKey = async (
       return { ok: false, error: new LinkingError("Consumer received a closed UCAN with potency. Closed UCAN must not have potency.") }
     }
 
-    const sessionKeyFromFact = decodedUcan.payload.fct[ 0 ] && decodedUcan.payload.fct[ 0 ].sessionKey
+    const fact = decodedUcan.payload.fct || []
+    const sessionKeyFromFact = fact[ 0 ] && fact[ 0 ]?.sessionKey
     if (!sessionKeyFromFact) {
       return { ok: false, error: new LinkingError("Consumer received a closed UCAN that was missing a session key in facts.") }
     }

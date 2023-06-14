@@ -97,10 +97,12 @@ export default abstract class Repository<T> {
     return this.dictionary[ key ]
   }
 
-  toDictionary(items: T[]): Record<string, T> {
-    return items.reduce(
-      (acc, value, idx) => ({ ...acc, [ idx.toString() ]: value }),
-      {}
+  toDictionary(items: T[]): Promise<Record<string, T>> {
+    return Promise.resolve(
+      items.reduce(
+        (acc, value, idx) => ({ ...acc, [ idx.toString() ]: value }),
+        {}
+      )
     )
   }
 

@@ -10,7 +10,7 @@ import { MountedPrivateNodes, PrivateNodeQueryResult } from "./types/internal.js
 import { Partition, Partitioned, PartitionedNonEmpty, Private, Public } from "../path/index.js"
 import { RootTree } from "./rootTree.js"
 import { Rng } from "./rng.js"
-import { Ucan } from "../ucan/types.js"
+import { Ucan } from "../ucan/index.js"
 import { agent } from "../did/local.js"
 import { dataFromBytes, dataToBytes } from "./data.js"
 import { findPrivateNode, partition as determinePartition } from "./mounts.js"

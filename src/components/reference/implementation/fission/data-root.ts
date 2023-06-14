@@ -86,7 +86,6 @@ export async function update(
         dependencies: dependencies,
 
         audience: await Fission.did(endpoints),
-        issuer: await DID.ucan(dependencies.crypto),
         potency: "APPEND",
         proof: Ucan.encode(proof),
 

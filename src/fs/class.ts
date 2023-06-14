@@ -15,7 +15,7 @@ import { EventEmitter } from "../events.js"
 import { Partitioned, PartitionedNonEmpty, Partition, Public, Private } from "../path/index.js"
 import { MountedPrivateNode, MountedPrivateNodes } from "./types/internal.js"
 import { TransactionContext } from "./transaction.js"
-import { Ucan } from "../ucan/types.js"
+import { Ucan } from "../ucan/index.js"
 import { findPrivateNode, partition as determinePartition } from "./mounts.js"
 import { privateReferenceFromWnfsRef, searchLatest, wnfsRefFromPrivateReference } from "./common.js"
 

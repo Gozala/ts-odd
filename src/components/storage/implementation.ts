@@ -5,7 +5,6 @@ export type ImplementationOptions = {
 
 export type Implementation = {
   KEYS: {
-    ACCOUNT_UCAN: string
     CID_LOG: string
     UCANS: string
     SESSION: string

@@ -107,6 +107,9 @@ export async function loadFileSystem({ config, dependencies, eventEmitter, usern
 
   await manners.fileSystem.hooks.afterLoadNew(fs, account, dataComponents)
 
+  // Mount private nodes
+  //
+
   // Fin
   return fs
 }

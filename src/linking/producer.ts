@@ -201,7 +201,6 @@ export const generateSessionKey = async (
   const u = await Ucan.build({
     dependencies: { crypto },
 
-    issuer: await DID.ucan(crypto),
     audience: didThrowaway,
     lifetimeInSeconds: 60 * 5, // 5 minutes
     facts: [ { sessionKey: Uint8arrays.toString(exportedSessionKey, "base64pad") } ],

@@ -1,7 +1,6 @@
 import * as Path from "./path/index.js"
 import { AppInfo } from "./appInfo.js"
 import { Distinctive } from "./path/index.js"
-import { Potency, Resource } from "./ucan/index.js"
 
 
 // 🏔
@@ -23,7 +22,6 @@ export type Permissions = {
   app?: AppInfo
   fs?: FileSystemPermissions
   platform?: PlatformPermissions
-  raw?: RawPermissions
   sharing?: boolean
 }
 
@@ -34,14 +32,6 @@ export type FileSystemPermissions = {
 
 export type PlatformPermissions = {
   apps: "*" | Array<string>
-}
-
-export type RawPermissions = Array<RawPermission>
-
-export type RawPermission = {
-  exp: number
-  rsc: Resource
-  ptc: Potency
 }
 
 
