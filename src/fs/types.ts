@@ -11,8 +11,7 @@ export type AnySupportedDataType<V>
   = Uint8Array | Record<string | number | symbol, V> | string
 
 export type AssociatedIdentity = {
-  rootDID: string
-  username?: string
+  did: string
 }
 
 export type DataRootChange = {

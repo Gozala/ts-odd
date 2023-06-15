@@ -39,12 +39,8 @@ export async function didRootLookup(dependencies: Dependencies, username: string
 export async function implementation(dependencies: Dependencies): Promise<Implementation> {
   return {
     dataRoot: {
-      domain: () => { throw new Error("Not implemented") },
       lookup: () => { throw new Error("Not implemented") },
       update: () => { throw new Error("Not implemented") }
-    },
-    didRoot: {
-      lookup: (...args) => didRootLookup(dependencies, ...args)
     },
     dns: {
       lookupDnsLink: DOH.lookupDnsLink,

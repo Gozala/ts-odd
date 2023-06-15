@@ -8,12 +8,8 @@ import { Ucan } from "../../ucan/index.js"
 
 export type Implementation = {
   dataRoot: {
-    domain: (username: string) => string // DNSLink domain
-    lookup: (username: string) => Promise<CID | null>
+    lookup: (accountProperties: Record<string, string>) => Promise<CID | null>
     update: (cid: CID, proof: Ucan) => Promise<{ success: boolean }>
-  }
-  didRoot: {
-    lookup: (username: string) => Promise<string>
   }
   dns: {
     lookupDnsLink: (domain: string) => Promise<string | null>

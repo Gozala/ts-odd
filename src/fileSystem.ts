@@ -1,20 +1,16 @@
 import { CID } from "multiformats/cid"
 
-import * as Crypto from "./components/crypto/implementation.js"
 import * as DAG from "./dag/index.js"
 import * as DID from "./did/index.js"
 import * as Events from "./events.js"
-import * as Reference from "./components/reference/implementation.js"
 import * as RootKey from "./common/root-key.js"
 import * as RootTree from "./fs/rootTree.js"
-import * as Storage from "./components/storage/implementation.js"
 import * as Ucan from "./ucan/index.js"
 import * as Versions from "./fs/version.js"
 
-import { AuthenticationStrategy } from "./index.js"
 import { Configuration } from "./configuration.js"
 import { Dependencies } from "./fs/types.js"
-import { Depot } from "./components.js"
+import { Account, Crypto, Depot, Reference, Storage } from "./components.js"
 import { FileSystem } from "./fs/class.js"
 import { Maybe, EMPTY_CID } from "./common/index.js"
 import { RecoverFileSystemParams } from "./fs/types/params.js"
@@ -39,7 +35,7 @@ export async function loadFileSystem({ config, dependencies, eventEmitter, usern
   const cidLog = reference.repositories.cidLog
 
   // Account
-  const account = { username, rootDID: await reference.didRoot.lookup(username) }
+  const account = { did: await reference.didRoot.lookup(username) }
 
   // Determine the correct CID of the file system to load
   const dataCid = navigator.onLine ? await getDataRoot(reference, username, { maxRetries: 20 }) : null
@@ -119,14 +115,13 @@ export async function loadFileSystem({ config, dependencies, eventEmitter, usern
  * Recover a user's file system.
  */
 export async function recoverFileSystem({
-  auth,
   dependencies,
   oldUsername,
   newUsername,
   readKey,
 }: {
-  auth: AuthenticationStrategy
   dependencies: {
+    account: Account.Implementation
     crypto: Crypto.Implementation
     reference: Reference.Implementation
     storage: Storage.Implementation

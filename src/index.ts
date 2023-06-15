@@ -1,57 +1,22 @@
-/*
-
-    %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
-  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
-@@@@@%     %@@@@@@%         %@@@@@@@%     %@@@@@
-@@@@@       @@@@@%            @@@@@@       @@@@@
-@@@@@%      @@@@@             %@@@@@      %@@@@@
-@@@@@@%     @@@@@     %@@%     @@@@@     %@@@@@@
-@@@@@@@     @@@@@    %@@@@%    @@@@@     @@@@@@@
-@@@@@@@     @@@@%    @@@@@@    @@@@@     @@@@@@@
-@@@@@@@    %@@@@     @@@@@@    @@@@@%    @@@@@@@
-@@@@@@@    @@@@@     @@@@@@    %@@@@@    @@@@@@@
-@@@@@@@    @@@@@@@@@@@@@@@@     @@@@@    @@@@@@@
-@@@@@@@    %@@@@@@@@@@@@@@@     @@@@%    @@@@@@@
-@@@@@@@     %@@%     @@@@@@     %@@%     @@@@@@@
-@@@@@@@              @@@@@@              @@@@@@@
-@@@@@@@%            %@@@@@@%            %@@@@@@@
-@@@@@@@@@%        %@@@@@@@@@@%        %@@@@@@@@@
-%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
-  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
-
- */
-
 import * as Uint8arrays from "uint8arrays"
 import localforage from "localforage"
 
-import * as Auth from "./components/auth/implementation.js"
 import * as CapabilitiesImpl from "./components/capabilities/implementation.js"
 import * as Capabilities from "./capabilities.js"
-import * as Crypto from "./components/crypto/implementation.js"
-import * as Depot from "./components/depot/implementation.js"
 import * as DID from "./did/local.js"
 import * as Events from "./events.js"
 import * as Extension from "./extension/index.js"
 import * as FileSystemData from "./fs/data.js"
-import * as Manners from "./components/manners/implementation.js"
-import * as Reference from "./components/reference/implementation.js"
 import * as RootKey from "./common/root-key.js"
 import * as Semver from "./common/semver.js"
-import * as SessionMod from "./session.js"
-import * as Storage from "./components/storage/implementation.js"
 import * as Ucan from "./ucan/index.js"
 
-import { SESSION_TYPE as CAPABILITIES_SESSION_TYPE } from "./capabilities.js"
-import { TYPE as WEB_CRYPTO_SESSION_TYPE } from "./components/auth/implementation/base.js"
 import { VERSION } from "./common/version.js"
-import { AccountLinkingConsumer, AccountLinkingProducer, createConsumer, createProducer } from "./linking/index.js"
+import { Account, Crypto, Depot, Identifier, Manners, Reference, Storage } from "./components.js"
 import { Components } from "./components.js"
 import { Configuration, namespace } from "./configuration.js"
 import { FileSystem } from "./fs/class.js"
 import { isString, Maybe } from "./common/index.js"
-import { Session } from "./session.js"
 import { loadFileSystem, recoverFileSystem } from "./fileSystem.js"
 
 
@@ -64,16 +29,11 @@ import { type RecoverFileSystemParams } from "./fs/types/params.js"
 // IMPLEMENTATIONS
 
 
-import * as BaseAuth from "./components/auth/implementation/base.js"
 import * as BaseReference from "./components/reference/implementation/base.js"
 import * as BrowserCrypto from "./components/crypto/implementation/browser.js"
 import * as BrowserStorage from "./components/storage/implementation/browser.js"
 import * as FissionIpfsProduction from "./components/depot/implementation/fission-ipfs-production.js"
 import * as FissionIpfsStaging from "./components/depot/implementation/fission-ipfs-staging.js"
-import * as FissionAuthBaseProduction from "./components/auth/implementation/fission-base-production.js"
-import * as FissionAuthBaseStaging from "./components/auth/implementation/fission-base-staging.js"
-import * as FissionAuthWnfsProduction from "./components/auth/implementation/fission-wnfs-production.js"
-import * as FissionAuthWnfsStaging from "./components/auth/implementation/fission-wnfs-staging.js"
 import * as FissionLobbyBase from "./components/capabilities/implementation/fission-lobby.js"
 import * as FissionLobbyProduction from "./components/capabilities/implementation/fission-lobby-production.js"
 import * as FissionLobbyStaging from "./components/capabilities/implementation/fission-lobby-staging.js"
@@ -101,25 +61,16 @@ export * as ucan from "./ucan/index.js"
 
 export { AccountLinkingConsumer, AccountLinkingProducer } from "./linking/index.js"
 export { FileSystem } from "./fs/class.js"
-export { Session } from "./session.js"
 
 
 
 // TYPES & CONSTANTS
 
 
-export type AuthenticationStrategy = {
-  implementation: Auth.Implementation<Components>
-
-  accountConsumer: (username: string) => Promise<AccountLinkingConsumer>
-  accountProducer: (username: string) => Promise<AccountLinkingProducer>
-  isUsernameAvailable: (username: string) => Promise<boolean>
-  isUsernameValid: (username: string) => Promise<boolean>
-  register: (options: { username: string; email?: string }) => Promise<{ success: boolean }>
-}
+export type AuthenticationStrategy = Account.Implementation & Pick<Identifier.Implementation, "login">
 
 
-export type Program = ShortHands & Events.ListenTo<Events.All<Session>> & {
+export type Program = ShortHands & Events.ListenTo<Events.All<{}>> & {
   /**
    * Authentication strategy, use this interface to register an account and log in.
    */
@@ -138,11 +89,6 @@ export type Program = ShortHands & Events.ListenTo<Events.All<Session>> & {
      * but you can add additional permissions or override existing ones.
      */
     request: (options?: CapabilitiesImpl.RequestOptions) => Promise<void>
-
-    /**
-     * Try to create a `Session` based on capabilities.
-     */
-    session: (username: string) => Promise<Maybe<Session>>
   }
 
   /**
@@ -179,7 +125,7 @@ export type FileSystemShortHands = {
   addSampleData: (fs: FileSystem) => Promise<void>
 
   /**
-   * Load the file system of a given username.
+   * Load the file system of a given user.
    */
   load: (username: string) => Promise<FileSystem>
 
@@ -255,7 +201,6 @@ export const auth = {
    *       you want to build something without the Fission infrastructure.
    */
   async fissionWebCrypto(settings: Configuration & {
-    disableWnfs?: boolean
     staging?: boolean
 
     // Dependencies
@@ -264,20 +209,15 @@ export const auth = {
     reference?: Reference.Implementation
     storage?: Storage.Implementation
   }): Promise<Auth.Implementation<Components>> {
-    const { disableWnfs, staging } = settings
+    const { staging } = settings
 
     const manners = settings.manners || defaultMannersComponent(settings)
     const crypto = settings.crypto || await defaultCryptoComponent(settings)
     const storage = settings.storage || defaultStorageComponent(settings)
     const reference = settings.reference || await defaultReferenceComponent({ crypto, manners, storage })
 
-    if (disableWnfs) {
-      if (staging) return FissionAuthBaseStaging.implementation({ crypto, reference, storage })
-      return FissionAuthBaseProduction.implementation({ crypto, reference, storage })
-    } else {
-      if (staging) return FissionAuthWnfsStaging.implementation({ crypto, reference, storage })
-      return FissionAuthWnfsProduction.implementation({ crypto, reference, storage })
-    }
+    if (staging) return FissionAuthWnfsStaging.implementation({ crypto, reference, storage })
+    return FissionAuthWnfsProduction.implementation({ crypto, reference, storage })
   }
 }
 
@@ -307,8 +247,6 @@ export const capabilities = {
     const { staging } = settings
     const crypto = settings.crypto || await defaultCryptoComponent(settings)
 
-    if (staging) return FissionLobbyStaging.implementation({ crypto })
-    return FissionLobbyProduction.implementation({ crypto })
     if (staging) return FissionLobbyStaging.implementation({ crypto })
     return FissionLobbyProduction.implementation({ crypto })
   }

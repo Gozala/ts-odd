@@ -1,22 +1,26 @@
+import { Ucan } from "../../ucan/index.js"
+
+
 export type Implementation = {
   /**
-   * For the Agent delegation UCAN.
+   * The DID belonging to the identifier.
+   *
+   * This'll be associated with your account and file system.
+   */
+  did: () => Promise<string>
+
+  /**
+   * What does logging in mean for this identifier?
+   */
+  login: () => Promise<Ucan[]>
+
+  /**
+   * For signing the agent delegation UCAN.
    *
    * The identifier system will always delegate to
    * the agent (non-exportable web-crypto key-pair)
    * so that future UCANs can be constructed easier
-   * (eg. not having to approve signing)
-   *
-   * Here we provide a DID and a signing method used to
-   * construct the UCAN which delegates to the agent.
+   * (eg. not having to approve signing each time)
    */
-  agentDelegation: {
-    did: () => Promise<string>
-    sign: (data: Uint8Array) => Promise<Uint8Array>
-  }
-
-  /**
-   *
-   */
-  login: () => void
+  sign: (data: Uint8Array) => Promise<Uint8Array>
 }
