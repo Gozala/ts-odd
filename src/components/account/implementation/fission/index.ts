@@ -1,9 +1,4 @@
-import type { Dependencies } from "../base.js"
-
-import * as Crypto from "../../../crypto/implementation.js"
-import * as DID from "../../../../did/index.js"
 import * as Fission from "../../../../common/fission.js"
-import * as Reference from "../../../reference/implementation.js"
 import * as Ucan from "../../../../ucan/index.js"
 
 import { USERNAME_BLOCKLIST } from "./blocklist.js"
@@ -27,7 +22,6 @@ export async function createAccount(
   const jwt = Ucan.encode(await Ucan.build({
     audience: await Fission.did(endpoints),
     dependencies: dependencies,
-    issuer: await DID.ucan(dependencies.crypto),
   }))
 
   const response = await fetch(Fission.apiUrl(endpoints, "/user"), {
@@ -69,46 +63,4 @@ export function isUsernameValid(username: string): boolean {
     !username.startsWith("_") &&
     /^[a-zA-Z0-9_-]+$/.test(username) &&
     !USERNAME_BLOCKLIST.includes(username.toLowerCase())
-}
-
-
-/**
- * Ask the fission server to send another verification email to the
- * user currently logged in.
- *
- * Throws if the user is not logged in.
- */
-export async function resendVerificationEmail(
-  endpoints: Endpoints,
-  crypto: Crypto.Implementation,
-  reference: Reference.Implementation
-): Promise<{ success: boolean }> {
-  // We've not implemented an "administer account" resource/ucan, so authenticating
-  // with any kind of ucan will work server-side
-  const localUcan = (await reference.repositories.ucans.getAll())[ 0 ]
-  if (localUcan === null) {
-    throw "Could not find your local UCAN"
-  }
-
-  const jwt = Ucan.encode(await Ucan.build({
-    audience: await Fission.did(endpoints),
-    dependencies: { crypto },
-    issuer: await DID.ucan(crypto),
-    proof: localUcan,
-    potency: null
-  }))
-
-  const response = await fetch(
-    Fission.apiUrl(endpoints, "/user/email/resend"),
-    {
-      method: "POST",
-      headers: {
-        "authorization": `Bearer ${jwt}`
-      }
-    }
-  )
-
-  return {
-    success: response.status < 300
-  }
 }

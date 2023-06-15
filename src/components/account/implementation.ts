@@ -8,15 +8,15 @@ export type Implementation = {
   /**
    * Can these form values be used to register an account?
    */
-  isAvailable: (formValues: Record<string, string>) => Promise<
-    { available: true } | { available: false, reason: string }
+  canRegister: (formValues: Record<string, string>) => Promise<
+    { ok: true } | { ok: false, reason: string }
   >
 
   /**
    * Register an account.
    */
-  register: (ucan: Ucan, formValues: Record<string, string>) => Promise<
-    { success: true, ucans: Ucan[] } | { success: false }
+  register: (formValues: Record<string, string>, identifierUcan?: Ucan) => Promise<
+    { ok: true, ucans: Ucan[] } | { ok: false }
   >
 
 
