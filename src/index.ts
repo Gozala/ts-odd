@@ -94,7 +94,6 @@ export * from "./common/types.js"
 export * from "./common/version.js"
 export * from "./permissions.js"
 
-export * as apps from "./apps/index.js"
 export * as did from "./did/index.js"
 export * as fission from "./common/fission.js"
 export * as path from "./path/index.js"
@@ -117,13 +116,12 @@ export type AuthenticationStrategy = {
   isUsernameAvailable: (username: string) => Promise<boolean>
   isUsernameValid: (username: string) => Promise<boolean>
   register: (options: { username: string; email?: string }) => Promise<{ success: boolean }>
-  session: () => Promise<Maybe<Session>>
 }
 
 
 export type Program = ShortHands & Events.ListenTo<Events.All<Session>> & {
   /**
-   * Authentication strategy, use this interface to register an account and link devices.
+   * Authentication strategy, use this interface to register an account and log in.
    */
   auth: AuthenticationStrategy
 
@@ -161,11 +159,6 @@ export type Program = ShortHands & Events.ListenTo<Events.All<Session>> & {
    * Various file system methods.
    */
   fileSystem: FileSystemShortHands
-
-  /**
-   * Existing session, if there is one.
-   */
-  session: Maybe<Session>
 }
 
 
@@ -472,48 +465,10 @@ export async function assemble(config: Configuration, components: Components): P
 
   // Event emitters
   const fsEvents = Events.createEmitter<Events.FileSystem>()
-  const sessionEvents = Events.createEmitter<Events.Session<Session>>()
-  const allEvents = Events.merge(fsEvents, sessionEvents)
+  const allEvents = fsEvents // Events.merge()
 
-  // Authenticated user
-  const sessionInfo = await SessionMod.restore(components.storage)
-
-  // Auth implementations
-  const auth: AuthenticationStrategy = (method => {
-    return {
-      implementation: method,
-
-      accountConsumer(username: string) {
-        return createConsumer(
-          { auth: method, crypto: components.crypto, manners: components.manners },
-          { username }
-        )
-      },
-
-      accountProducer(username: string) {
-        return createProducer(
-          { auth: method, crypto: components.crypto, manners: components.manners },
-          { username }
-        )
-      },
-
-      isUsernameAvailable: method.isUsernameAvailable,
-      isUsernameValid: method.isUsernameValid,
-      register: method.register,
-
-      async session(): Promise<Maybe<Session>> {
-        const newSessionInfo = await SessionMod.restore(components.storage)
-        if (!newSessionInfo) return null
-
-        return this.implementation.session(
-          components,
-          newSessionInfo.username,
-          config,
-          { fileSystem: fsEvents, session: sessionEvents }
-        )
-      }
-    }
-  })(components.auth)
+  // Auth
+  // TODO
 
   // Capabilities
   const capabilities = {
@@ -527,8 +482,6 @@ export async function assemble(config: Configuration, components: Components): P
         reference: components.reference,
         storage: components.storage
       })
-
-      return c.username
     },
     request(options?: CapabilitiesImpl.RequestOptions) {
       return components.capabilities.request({
@@ -536,63 +489,11 @@ export async function assemble(config: Configuration, components: Components): P
         ...(options || {})
       })
     },
-    async session(username: string) {
-      const ucan = Capabilities.validatePermissions(
-        components.reference.repositories.ucans,
-        permissions || {}
-      )
-
-      if (!ucan) {
-        console.warn("The present UCANs did not satisfy the configured permissions.")
-        return null
-      }
-
-      const accountDID = await components.reference.didRoot.lookup(username)
-
-      const validSecrets = await Capabilities.validateSecrets(
-        components.crypto,
-        accountDID,
-        permissions || {}
-      )
-
-      if (!validSecrets) {
-        console.warn("The present filesystem secrets did not satisfy the configured permissions.")
-        return null
-      }
-
-      await SessionMod.provide(components.storage, { type: CAPABILITIES_SESSION_TYPE, username })
-
-      const fs = config.fileSystem?.loadImmediately === false ?
-        undefined :
-        await loadFileSystem({
-          config,
-          dependencies: components,
-          eventEmitter: fsEvents,
-          username,
-        })
-
-      return new Session({
-        fs,
-        username,
-        crypto: components.crypto,
-        storage: components.storage,
-        type: CAPABILITIES_SESSION_TYPE,
-        eventEmitter: sessionEvents
-      })
-    }
   }
 
-  // Session
-  let session = null
-
+  // Capabilities
   if (isCapabilityBasedAuthConfiguration(config)) {
-    const username = await capabilities.collect()
-    if (username) session = await capabilities.session(username)
-    if (sessionInfo && sessionInfo.type === CAPABILITIES_SESSION_TYPE) session = await capabilities.session(sessionInfo.username)
-
-  } else if (sessionInfo && sessionInfo.type !== CAPABILITIES_SESSION_TYPE) {
-    session = await auth.session()
-
+    await capabilities.collect()
   }
 
   // Shorthands
@@ -619,10 +520,11 @@ export async function assemble(config: Configuration, components: Components): P
     auth,
     components,
     capabilities,
-    session,
   }
 
-  // Inject into global context if necessary
+  // Debug mode:
+  // - Enable ODD extensions (if configured)
+  // - Inject into global context (if configured)
   if (config.debug) {
     const inject = config.debugging?.injectIntoGlobalContext === undefined
       ? true

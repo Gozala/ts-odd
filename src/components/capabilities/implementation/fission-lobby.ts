@@ -1,6 +1,5 @@
 import * as Uint8arrays from "uint8arrays"
 
-import * as Base64 from "../../../common/base64.js"
 import * as Capabilities from "../../../capabilities.js"
 import * as Crypto from "../../../components/crypto/implementation.js"
 import * as DID from "../../../did/index.js"
@@ -75,7 +74,6 @@ export async function request(
   const app = permissions?.app
   const fs = permissions?.fs
   const platform = permissions?.platform
-  const raw = permissions?.raw
   const sharing = permissions?.sharing
 
   const exchangeDid = await DID.exchange(dependencies.crypto)
@@ -96,7 +94,6 @@ export async function request(
     app ? [ [ "appFolder", `${app.creator}/${app.name}` ] ] : [],
     fs?.private ? fs.private.map(p => [ "privatePath", Path.toPosix(p, { absolute: true }) ]) : [],
     fs?.public ? fs.public.map(p => [ "publicPath", Path.toPosix(p, { absolute: true }) ]) : [],
-    raw ? [ [ "raw", Base64.urlEncode(JSON.stringify(raw)) ] ] : [],
     options.extraParams ? Object.entries(options.extraParams) : []
 
   ).concat((() => {

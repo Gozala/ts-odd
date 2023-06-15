@@ -8,6 +8,7 @@ import * as Reference from "../../components/reference/implementation.js"
 import * as Storage from "../../components/storage/implementation.js"
 
 import * as FS from "../../fs/types.js"
+import { Channel, ChannelOptions } from "./channel.js"
 import { FileSystem } from "../../fs/class.js"
 
 
@@ -29,13 +30,9 @@ export type Implementation = {
   warn: (...args: unknown[]) => void
 
   /**
-   * Configure how the wnfs wasm module should be loaded.
-   *
-   * This only has an effect if you're using file systems of version 3 or higher.
-   *
-   * By default this loads the required version of the wasm wnfs module from unpkg.com.
+   * How to establish an AWAKE channel.
    */
-  wnfsWasmLookup: (wnfsVersion: string) => Promise<BufferSource | Response>
+  createChannel: (options: ChannelOptions) => Promise<Channel>
 
   /**
    * File system.
@@ -51,4 +48,13 @@ export type Implementation = {
       beforeLoadNew: (account: FS.AssociatedIdentity, dataComponents: DataComponents) => Promise<void>
     }
   }
+
+  /**
+   * Configure how the wnfs wasm module should be loaded.
+   *
+   * This only has an effect if you're using file systems of version 3 or higher.
+   *
+   * By default this loads the required version of the wasm wnfs module from unpkg.com.
+   */
+  wnfsWasmLookup: (wnfsVersion: string) => Promise<BufferSource | Response>
 }

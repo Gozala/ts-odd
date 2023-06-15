@@ -7,7 +7,6 @@ export type Implementation = {
   KEYS: {
     CID_LOG: string
     UCANS: string
-    SESSION: string
   }
 
   getItem: <T>(key: string) => Promise<T | null>

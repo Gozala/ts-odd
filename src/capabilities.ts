@@ -22,7 +22,6 @@ import { Maybe } from "./common/types.js"
 export type Capabilities = {
   fileSystemSecrets: FileSystemSecret[]
   ucans: Ucan.Ucan[]
-  username: string
 }
 
 
@@ -104,7 +103,7 @@ export async function collectPermissions({ reference, ucans }: {
  */
 export function validatePermissions(
   repo: Repository<Ucan.Ucan>,
-  { app, fs, raw }: Permissions.Permissions
+  { app, fs }: Permissions.Permissions
 ): Maybe<Ucan.Ucan> {
   let ucan
 
