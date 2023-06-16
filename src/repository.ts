@@ -27,7 +27,13 @@ export default abstract class Repository<T> {
     // @ts-ignore
     const repo = new this.prototype.constructor(options)
 
-    repo.memoryCache = await repo.getAll()
+    const storage = await repo.storage.getItem(repo.storageName)
+    const storedItems = TypeChecks.isString(storage)
+      // TODO: ? - Need partial JSON decoding for this
+      ? storage.split("|||").map(repo.fromJSON)
+      : []
+
+    repo.memoryCache = storedItems
     repo.dictionary = repo.toDictionary(repo.memoryCache)
 
     return repo
@@ -37,7 +43,7 @@ export default abstract class Repository<T> {
     const items = Array.isArray(itemOrItems) ? itemOrItems : [ itemOrItems ]
 
     this.memoryCache = [ ...this.memoryCache, ...items ]
-    this.dictionary = this.toDictionary(this.memoryCache)
+    this.dictionary = await this.toDictionary(this.memoryCache)
 
     await this.storage.setItem(
       this.storageName,
@@ -61,14 +67,8 @@ export default abstract class Repository<T> {
     return this.memoryCache[ idx ]
   }
 
-  async getAll(): Promise<T[]> {
-    const storage = await this.storage.getItem(this.storageName)
-    const storedItems = TypeChecks.isString(storage)
-      // TODO: ? - Need partial JSON decoding for this
-      ? storage.split("|||").map(this.fromJSON)
-      : []
-
-    return storedItems
+  getAll(): T[] {
+    return this.memoryCache
   }
 
   indexOf(item: T): number {

@@ -4,6 +4,7 @@ import * as Ucan from "../ucan/index.js"
 
 import Repository, { RepositoryOptions } from "../repository.js"
 import { DistinctivePath } from "../path/index.js"
+import { SUPERUSER } from "@ucans/core"
 
 
 export function create({ storage }: { storage: Storage.Implementation }): Promise<Repo> {
@@ -43,11 +44,10 @@ export class Repo extends Repository<Ucan.Ucan> {
   /**
    * Look up a UCAN with a file system path.
    */
-  async lookupFileSystemUcan(
+  lookupFileSystemUcan(
     did: string,
-    path: DistinctivePath<Path.Segments> | "*"
-  ): Promise<Ucan.Ucan | null> {
-    // TODO:
+    path: DistinctivePath<Path.Segments>
+  ): Ucan.Ucan | null {
     // "wnfs://<did>/<optional:partition>/<optional:path>": {
     //   /* One of the following */
     //   "fs/*": [{}],
@@ -56,8 +56,41 @@ export class Repo extends Repository<Ucan.Ucan> {
     //   "fs/overwrite": [{}],
     //   "fs/delete": [{}],
     // }
-    //
-    // Find a UCAN with the capability: `wnfs://${did}/${path}`
+
+    const fsUcans = this.fileSystemUcans()
+    const pathParts = Path.unwrap(path)
+
+    const results = [ "", ...pathParts ].reduce(
+      (acc: Ucan.Ucan[], _part, idx): Ucan.Ucan[] => {
+        const pathSoFar = Path.fromKind(Path.kind(path), ...(pathParts.slice(0, idx)))
+        const hierPart = `${did}/${Path.toPosix(pathSoFar)}`
+
+        return [
+          ...acc,
+          ...fsUcans.filter(ucan => {
+            return ucan.payload.att.find(cap => {
+              return cap.with.hierPart === hierPart && (cap.can === SUPERUSER || cap.can.namespace === "fs")
+            })
+          })
+        ]
+      },
+      []
+    )
+
+    // TODO: Need to sort by ability level, ie. prefer super user over anything else
+    return results[ 0 ] || null
+  }
+
+  accountUcans(): Ucan.Ucan[] {
+    return this.getAll().filter(ucan =>
+      ucan.payload.att.some(cap => cap.with.scheme === "did")
+    )
+  }
+
+  fileSystemUcans(): Ucan.Ucan[] {
+    return this.getAll().filter(ucan =>
+      ucan.payload.att.some(cap => cap.with.scheme === "wnfs")
+    )
   }
 
 }
