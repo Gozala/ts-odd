@@ -1,6 +1,3 @@
-import { Ucan } from "../../ucan/index.js"
-
-
 export type Implementation = {
   /**
    * The DID belonging to the identifier.
@@ -8,11 +5,6 @@ export type Implementation = {
    * This'll be associated with your account and file system.
    */
   did: () => Promise<string>
-
-  /**
-   * What does logging in mean for this identifier?
-   */
-  login: () => Promise<Ucan[]>
 
   /**
    * For signing the agent delegation UCAN.
