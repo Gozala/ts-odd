@@ -1,6 +1,5 @@
 import { CID } from "multiformats/cid"
 
-import * as DID from "../../../../did/index.js"
 import * as DNS from "../../dns-over-https.js"
 import * as Fission from "../../../../common/fission.js"
 import * as TypeChecks from "../../../../common/type-checks.js"

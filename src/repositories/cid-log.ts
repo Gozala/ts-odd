@@ -1,7 +1,7 @@
 import { CID } from "multiformats/cid"
 
 import * as Storage from "../components/storage/implementation"
-import { decodeCID } from "../common/cid.js"
+import { decodeCID, encodeCID } from "../common/cid.js"
 import Repository, { RepositoryOptions } from "../repository.js"
 
 
@@ -27,7 +27,7 @@ export class Repo extends Repository<CID> {
   }
 
   toJSON(a: CID): string {
-    return a.toString()
+    return encodeCID(a)
   }
 
   indexOf(item: CID): number {
