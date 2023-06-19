@@ -28,11 +28,8 @@ export type Dependencies = {
 export async function collect(
   endpoints: Fission.Endpoints,
   dependencies: Dependencies
-): Promise<Maybe<Capabilities.Capabilities>> {
+): Promise<Ucan.Ucan[]> {
   const url = new URL(self.location.href)
-  const username = url.searchParams.get("username") ?? ""
-  if (!username) return null
-
   const info = await retry(
     () => getClassifiedViaPostMessage(endpoints, dependencies.crypto),
     {
@@ -55,7 +52,8 @@ export async function collect(
 
   history.replaceState(null, document.title, url.toString())
 
-  return { ...secrets, username }
+  // TODO
+  return []
 }
 
 

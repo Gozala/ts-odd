@@ -19,7 +19,7 @@ export async function build(
     await plugins(dependencies.crypto)
   )({
     ...params,
-    issuer: await keyPair(dependencies.crypto)
+    issuer: params.issuer || await keyPair(dependencies.crypto)
   })
 }
 
@@ -110,6 +110,7 @@ export async function plugins(crypto: Crypto.Implementation): Promise<Ucans.Plug
 type BuildParams = {
   // from/to
   audience: string
+  issuer?: Keypair
 
   // capabilities
   capabilities?: Array<Ucans.Capability>

@@ -1,22 +1,15 @@
-import * as Uint8arrays from "uint8arrays"
 import localforage from "localforage"
 
-import * as CapabilitiesImpl from "./components/capabilities/implementation.js"
-import * as Capabilities from "./capabilities.js"
+import * as Auth from "./auth.js"
 import * as DID from "./did/local.js"
 import * as Events from "./events.js"
 import * as Extension from "./extension/index.js"
 import * as FileSystemData from "./fs/data.js"
-import * as RootKey from "./common/root-key.js"
-import * as Semver from "./common/semver.js"
-import * as Ucan from "./ucan/index.js"
 
-import { VERSION } from "./common/version.js"
-import { Account, Crypto, Depot, Identifier, Manners, Reference, Storage } from "./components.js"
+import { Account, Capabilities, Crypto, Depot, Identifier, Manners, Reference, Storage } from "./components.js"
 import { Components } from "./components.js"
 import { Configuration, namespace } from "./configuration.js"
 import { FileSystem } from "./fs/class.js"
-import { isString, Maybe } from "./common/index.js"
 import { loadFileSystem, recoverFileSystem } from "./fileSystem.js"
 
 
@@ -57,7 +50,6 @@ export * from "./permissions.js"
 export * as did from "./did/index.js"
 export * as fission from "./common/fission.js"
 export * as path from "./path/index.js"
-export * as ucan from "./ucan/index.js"
 
 export { AccountLinkingConsumer, AccountLinkingProducer } from "./linking/index.js"
 export { FileSystem } from "./fs/class.js"
@@ -67,7 +59,9 @@ export { FileSystem } from "./fs/class.js"
 // TYPES & CONSTANTS
 
 
-export type AuthenticationStrategy = Account.Implementation & Pick<Identifier.Implementation, "login">
+export type AuthenticationStrategy = Account.Implementation & {
+  login: () => Promise<void>
+}
 
 
 export type Program = ShortHands & Events.ListenTo<Events.All<{}>> & {
@@ -80,7 +74,7 @@ export type Program = ShortHands & Events.ListenTo<Events.All<{}>> & {
     /**
      * Collect capabilities.
      */
-    collect: () => Promise<Maybe<string>> // returns username
+    collect: () => Promise<void>
 
     /**
      * Request capabilities.
@@ -88,7 +82,7 @@ export type Program = ShortHands & Events.ListenTo<Events.All<{}>> & {
      * Permissions from your configuration are passed automatically,
      * but you can add additional permissions or override existing ones.
      */
-    request: (options?: CapabilitiesImpl.RequestOptions) => Promise<void>
+    request: (options?: Capabilities.RequestOptions) => Promise<void>
   }
 
   /**
@@ -115,7 +109,6 @@ export enum ProgramError {
 
 
 export type ShortHands = {
-  accountDID: (username: string) => Promise<string>
   agentDID: () => Promise<string>
   sharingDID: () => Promise<string>
 }
@@ -144,9 +137,8 @@ export type FileSystemShortHands = {
  * 🚀 Build an ODD program.
  *
  * This will give you a `Program` object which has the following properties:
- * - `session`, a `Session` object if a session was created before.
- * - `auth`, a means to control the various auth strategies you configured. Use this to create sessions. Read more about auth components in the toplevel `auth` object documention.
- * - `capabilities`, a means to control capabilities. Use this to collect & request capabilities, and to create a session based on them. Read more about capabilities in the toplevel `capabilities` object documentation.
+ * - `auth`, a means to login or register an account.
+ * - `capabilities`, a means to control capabilities. Use this to collect & request capabilities. Read more about capabilities in the toplevel `capabilities` object documentation.
  * - `components`, your full set of `Components`.
  *
  * This object also has a few other functions, for example to load a filesystem.
@@ -243,7 +235,7 @@ export const capabilities = {
 
     // Dependencies
     crypto?: Crypto.Implementation
-  }): Promise<CapabilitiesImpl.Implementation> {
+  }): Promise<Capabilities.Implementation> {
     const { staging } = settings
     const crypto = settings.crypto || await defaultCryptoComponent(settings)
 
@@ -359,7 +351,7 @@ export const reference = {
  * Predefined storage configuration.
  *
  * A key-value storage abstraction responsible for storing various
- * pieces of data, such as session data and UCANs.
+ * pieces of data, such as ephemeral data and UCANs.
  */
 export const storage = {
   /**
@@ -388,7 +380,7 @@ export const storage = {
  * Use `program` to work with a default, or partial, set of components.
  *
  * Additionally this does a few other things:
- * - Restores a session if one was made before and loads the user's file system if needed.
+ * - Loads the user's file system if needed.
  * - Attempts to collect capabilities if the configuration has permissions.
  * - Provides shorthands to functions so you don't have to pass in components.
  * - Ensure backwards compatibility with older ODD SDK clients.
@@ -397,31 +389,24 @@ export const storage = {
  */
 export async function assemble(config: Configuration, components: Components): Promise<Program> {
   const permissions = config.permissions
-
-  // Backwards compatibility (data)
-  await ensureBackwardsCompatibility(components, config)
+  const { crypto, identifier } = components
 
   // Event emitters
   const fsEvents = Events.createEmitter<Events.FileSystem>()
   const allEvents = fsEvents // Events.merge()
 
   // Auth
-  // TODO
+  const auth = {
+    login: Auth.login({ crypto, identifier })
+  }
 
   // Capabilities
   const capabilities = {
     async collect() {
-      const c = await components.capabilities.collect()
-      if (!c) return null
-
-      await Capabilities.collect({
-        capabilities: c,
-        crypto: components.crypto,
-        reference: components.reference,
-        storage: components.storage
-      })
+      const ucans = await components.capabilities.collect()
+      return components.reference.repositories.ucans.add(ucans)
     },
-    request(options?: CapabilitiesImpl.RequestOptions) {
+    request(options?: Capabilities.RequestOptions) {
       return components.capabilities.request({
         permissions,
         ...(options || {})
@@ -429,15 +414,14 @@ export async function assemble(config: Configuration, components: Components): P
     },
   }
 
-  // Capabilities
   if (isCapabilityBasedAuthConfiguration(config)) {
+    // Auto collect capabilities if configured
     await capabilities.collect()
   }
 
   // Shorthands
   const shorthands = {
     // DIDs
-    accountDID: (username: string) => components.reference.didRoot.lookup(username),
     agentDID: () => DID.agent(components.crypto),
     sharingDID: () => DID.sharing(components.crypto),
 
@@ -455,6 +439,7 @@ export async function assemble(config: Configuration, components: Components): P
     ...Events.listenTo(allEvents),
 
     configuration: { ...config },
+
     auth,
     components,
     capabilities,
@@ -482,12 +467,10 @@ export async function assemble(config: Configuration, components: Components): P
     if (emitMessages) {
       const { connect, disconnect } = await Extension.create({
         namespace: config.namespace,
-        session,
         capabilities: config.permissions,
         dependencies: components,
         eventEmitters: {
-          fileSystem: fsEvents,
-          session: sessionEvents
+          fileSystem: fsEvents
         }
       })
 
@@ -644,133 +627,6 @@ export async function isSupported(): Promise<boolean> {
       db.onsuccess = () => resolve(true)
       db.onerror = () => resolve(false)
     }))() as boolean
-}
-
-
-
-// BACKWARDS COMPAT
-
-
-async function ensureBackwardsCompatibility(components: Components, config: Configuration): Promise<void> {
-  // Old pieces:
-  // - Key pairs: IndexedDB → keystore → exchange-key & write-key
-  // - UCAN used for account linking/delegation: IndexedDB → localforage → ucan
-  // - Root read key of the filesystem: IndexedDB → localforage → readKey
-  // - Authenticated username: IndexedDB → localforage → webnative.auth_username
-
-  const [ migK, migV ] = [ "migrated", VERSION ]
-  const currentVersion = Semver.fromString(VERSION.toString() === "next" ? "1.0.0" : VERSION)
-  if (!currentVersion) throw new Error("The ODD SDK VERSION should be a semver string")
-
-  // If already migrated, stop here.
-  const migrationOccurred = await components.storage
-    .getItem(migK)
-    .then(v => typeof v === "string" ? Semver.fromString(v) : null)
-    .then(v => v && Semver.isBiggerThanOrEqualTo(v, currentVersion))
-
-  if (migrationOccurred) return
-
-  // Only try to migrate if environment supports indexedDB
-  if (!globalThis.indexedDB) return
-
-  // Migration
-  const existingDatabases = globalThis.indexedDB.databases
-    ? (await globalThis.indexedDB.databases()).map(db => db.name)
-    : [ "keystore", "localforage" ]
-
-  const keystoreDB = existingDatabases.includes("keystore") ? await bwOpenDatabase("keystore") : null
-
-  if (keystoreDB) {
-    const exchangeKeyPair = await bwGetValue(keystoreDB, "keyvaluepairs", "exchange-key")
-    const writeKeyPair = await bwGetValue(keystoreDB, "keyvaluepairs", "write-key")
-
-    if (exchangeKeyPair && writeKeyPair) {
-      await components.storage.setItem("exchange-key", exchangeKeyPair)
-      await components.storage.setItem("write-key", writeKeyPair)
-    }
-  }
-
-  const localforageDB = existingDatabases.includes("localforage") ? await bwOpenDatabase("localforage") : null
-
-  if (localforageDB) {
-    const accountUcan = await bwGetValue(localforageDB, "keyvaluepairs", "ucan")
-    const permissionedUcans = await bwGetValue(localforageDB, "keyvaluepairs", "webnative.auth_ucans")
-    const rootKey = await bwGetValue(localforageDB, "keyvaluepairs", "readKey")
-    const authedUser = await bwGetValue(localforageDB, "keyvaluepairs", "webnative.auth_username")
-
-    if (rootKey && isString(rootKey)) {
-      const anyUcan = accountUcan || (Array.isArray(permissionedUcans) ? permissionedUcans[ 0 ] : undefined)
-      const accountDID = anyUcan ? Ucan.rootIssuer(anyUcan) : (typeof authedUser === "string" ? await components.reference.didRoot.lookup(authedUser) : null)
-      if (!accountDID) throw new Error("Failed to retrieve account DID")
-
-      await RootKey.store({
-        accountDID,
-        crypto: components.crypto,
-        readKey: Uint8arrays.fromString(rootKey, "base64pad"),
-      })
-    }
-
-    if (accountUcan) {
-      await components.storage.setItem(
-        components.storage.KEYS.ACCOUNT_UCAN,
-        accountUcan
-      )
-    }
-
-    if (authedUser) {
-      await components.storage.setItem(
-        components.storage.KEYS.SESSION,
-        JSON.stringify({
-          type: isCapabilityBasedAuthConfiguration(config) ? CAPABILITIES_SESSION_TYPE : WEB_CRYPTO_SESSION_TYPE,
-          username: authedUser
-        })
-      )
-    }
-  }
-
-  await components.storage.setItem(migK, migV)
-}
-
-
-function bwGetValue(db: IDBDatabase, storeName: string, key: string): Promise<Maybe<unknown>> {
-  return new Promise((resolve, reject) => {
-    if (!db.objectStoreNames.contains(storeName)) return resolve(null)
-
-    const transaction = db.transaction([ storeName ], "readonly")
-    const store = transaction.objectStore(storeName)
-    const req = store.get(key)
-
-    req.onerror = () => {
-      // No store, moving on.
-      resolve(null)
-    }
-
-    req.onsuccess = () => {
-      resolve(req.result)
-    }
-  })
-}
-
-
-function bwOpenDatabase(name: string): Promise<Maybe<IDBDatabase>> {
-  return new Promise((resolve, reject) => {
-    const req = globalThis.indexedDB.open(name)
-
-    req.onerror = () => {
-      // No database, moving on.
-      resolve(null)
-    }
-
-    req.onsuccess = () => {
-      resolve(req.result)
-    }
-
-    req.onupgradeneeded = e => {
-      // Don't create database if it didn't exist before
-      req.transaction?.abort()
-      globalThis.indexedDB.deleteDatabase(name)
-    }
-  })
 }
 
 

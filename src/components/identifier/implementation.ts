@@ -15,4 +15,9 @@ export type Implementation = {
    * (eg. not having to approve signing each time)
    */
   sign: (data: Uint8Array) => Promise<Uint8Array>
+
+  /**
+   * The JWT `alg` used in the agent delegation UCAN.
+   */
+  ucanAlgorithm: () => Promise<string>
 }

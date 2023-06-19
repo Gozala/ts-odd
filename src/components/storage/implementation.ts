@@ -3,6 +3,9 @@ export type ImplementationOptions = {
 }
 
 
+/**
+ * Ephemeral storage.
+ */
 export type Implementation = {
   KEYS: {
     CID_LOG: string

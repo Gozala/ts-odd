@@ -52,23 +52,6 @@ export async function collect({ capabilities, crypto, reference, storage }: {
   if (capabilities.ucans.length === 0) throw new Error("Expected at least one UCAN")
 
   await collectPermissions({ reference, ucans: capabilities.ucans })
-
-  const accountDID = await reference.didRoot.lookup(capabilities.username)
-
-  await capabilities.fileSystemSecrets.reduce(
-    async (acc: Promise<void>, fsSecret: FileSystemSecret) => {
-      await acc
-      await collectSecret({
-        accountDID,
-        crypto,
-        storage,
-        bareNameFilter: fsSecret.bareNameFilter,
-        readKey: fsSecret.readKey,
-        path: fsSecret.path,
-      })
-    },
-    Promise.resolve()
-  )
 }
 
 
@@ -109,10 +92,6 @@ export function validatePermissions(
 
   const prefix = UcansRepo.fileSystemPrefix()
 
-  // Root access
-  const rootUcan = repo.getByKey("*")
-  if (rootUcan && !Ucan.isExpired(rootUcan) && !Ucan.isSelfSigned(rootUcan)) return rootUcan
-
   // Check permissions
   if (app) {
     const k = prefix + Path.toPosix(Path.appData(app))
@@ -139,16 +118,6 @@ export function validatePermissions(
       return u && !Ucan.isExpired(u)
     })
     if (!publ) return null
-  }
-
-  if (raw) {
-    const hasRaw = raw.every(r => {
-      const label = UcansRepo.resourceLabel(r.rsc)
-      const u = repo.getByKey(label)
-      ucan = u
-      return u && !Ucan.isExpired(u)
-    })
-    if (!hasRaw) return null
   }
 
   return ucan || null

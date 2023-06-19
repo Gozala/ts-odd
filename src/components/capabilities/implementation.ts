@@ -1,6 +1,5 @@
-import { Capabilities } from "../../capabilities.js"
-import { Maybe } from "../../common/types.js"
 import { Permissions } from "../../permissions.js"
+import { Ucan } from "../../ucan/index.js"
 
 
 export type RequestOptions = {
@@ -10,6 +9,6 @@ export type RequestOptions = {
 }
 
 export type Implementation = {
-  collect: () => Promise<Maybe<Capabilities>>
+  collect: () => Promise<Ucan[]>
   request: (options: RequestOptions) => Promise<void>
 }
