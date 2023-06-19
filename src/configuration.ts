@@ -1,3 +1,4 @@
+import { Account } from "./components.js"
 import { AppInfo } from "./appInfo.js"
 import { isString } from "./common/type-checks.js"
 import { appId, Permissions, ROOT_FILESYSTEM_PERMISSIONS } from "./permissions.js"
@@ -6,7 +7,7 @@ import { appId, Permissions, ROOT_FILESYSTEM_PERMISSIONS } from "./permissions.j
 // CONFIGURATION
 
 
-export type Configuration = {
+export type Configuration<M extends Mode> = {
   namespace: string | AppInfo
 
   /**
@@ -59,11 +60,6 @@ export type Configuration = {
   }
 
   /**
-   * Permissions to ask a root authority.
-   */
-  permissions?: Permissions
-
-  /**
    * Configure messages that the ODD SDK sends to users.
    *
    * `versionMismatch.newer` is shown when the ODD SDK detects
@@ -72,7 +68,52 @@ export type Configuration = {
    *  file system is older than what this version of the ODD SDK supports.
    */
   userMessages?: UserMessages
+} & (
+    M extends "capabilities" ? {
+      /**
+       * Capabilities to ask a self-owned-login app.
+       */
+      permissions: Permissions
+    }
+    : M extends "self-owned-login" ? {}
+    : never
+  )
+
+
+
+// MODE
+
+
+export type Mode = "capabilities" | "self-owned-login"
+
+
+export type CapabilitiesMode = {
+  mode: "capabilities"
+
+  capabilities: {
+    request: () => void // TODO
+  }
 }
+
+
+export type SelfOwnedLoginMode = {
+  mode: "self-owned-login"
+
+  capabilities: {
+    provide: () => void // TODO
+  }
+} & AuthenticationStrategy
+
+
+export type AuthenticationStrategy = Account.Implementation & {
+  login: () => Promise<void>
+}
+
+
+export type ProgramPropertiesForMode<M extends Mode>
+  = M extends "capabilities" ? CapabilitiesMode
+  : M extends "self-owned-login" ? SelfOwnedLoginMode
+  : never
 
 
 

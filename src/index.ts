@@ -8,7 +8,7 @@ import * as FileSystemData from "./fs/data.js"
 
 import { Account, Capabilities, Crypto, Depot, Identifier, Manners, Reference, Storage } from "./components.js"
 import { Components } from "./components.js"
-import { Configuration, namespace } from "./configuration.js"
+import { Configuration, Mode, ProgramPropertiesForMode, namespace } from "./configuration.js"
 import { FileSystem } from "./fs/class.js"
 import { loadFileSystem, recoverFileSystem } from "./fileSystem.js"
 
@@ -59,36 +59,11 @@ export { FileSystem } from "./fs/class.js"
 // TYPES & CONSTANTS
 
 
-export type AuthenticationStrategy = Account.Implementation & {
-  login: () => Promise<void>
-}
-
-
-export type Program = ShortHands & Events.ListenTo<Events.All<{}>> & {
-  /**
-   * Authentication strategy, use this interface to register an account and log in.
-   */
-  auth: AuthenticationStrategy
-
-  capabilities: {
-    /**
-     * Collect capabilities.
-     */
-    collect: () => Promise<void>
-
-    /**
-     * Request capabilities.
-     *
-     * Permissions from your configuration are passed automatically,
-     * but you can add additional permissions or override existing ones.
-     */
-    request: (options?: Capabilities.RequestOptions) => Promise<void>
-  }
-
+export type Program<M extends Mode> = ProgramPropertiesForMode<M> & ShortHands & Events.ListenTo<Events.All<{}>> & {
   /**
    * Configuration used to build this program.
    */
-  configuration: Configuration
+  configuration: Configuration<M>
 
   /**
    * Components used to build this program.
