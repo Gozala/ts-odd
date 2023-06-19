@@ -29,4 +29,5 @@ export type Implementation = {
    * which might need account identification.
    */
   properties: () => Promise<Record<string, string>>
+
 }

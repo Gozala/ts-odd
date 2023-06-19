@@ -17,7 +17,7 @@ export async function canRegister(
 
   username = username.trim()
 
-  if (await Fission.isUsernameValid(username) === false) return {
+  if (Fission.isUsernameValid(username) === false) return {
     ok: false,
     reason: "Username is not valid."
   }

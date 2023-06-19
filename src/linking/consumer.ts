@@ -1,6 +1,5 @@
 import * as Uint8arrays from "uint8arrays"
 
-import * as Auth from "../components/auth/implementation.js"
 import * as Crypto from "../components/crypto/implementation.js"
 import * as Manners from "../components/manners/implementation.js"
 
@@ -28,7 +27,6 @@ export interface ConsumerEventMap {
 }
 
 export type Dependencies = {
-  auth: Auth.Implementation<Components>
   crypto: Crypto.Implementation
   manners: Manners.Implementation
 }
@@ -307,7 +305,6 @@ export const generateUserChallenge = async (
  * @returns linking result
  */
 export const linkDevice = async (
-  auth: Auth.Implementation<Components>,
   crypto: Crypto.Implementation,
   sessionKey: Uint8Array,
   username: string,
@@ -351,7 +348,7 @@ export const linkDevice = async (
       return { ok: true, value: { approved: false } }
     }
 
-    await auth.linkDevice(username, response.value)
+    // TODO: await auth.linkDevice(username, response.value)
 
     return { ok: true, value: { approved: true } }
   } else {

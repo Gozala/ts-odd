@@ -8,7 +8,6 @@ import * as Reference from "../../components/reference/implementation.js"
 import * as Storage from "../../components/storage/implementation.js"
 
 import * as FS from "../../fs/types.js"
-import { Channel, ChannelOptions } from "./channel.js"
 import { FileSystem } from "../../fs/class.js"
 
 
@@ -28,11 +27,6 @@ export type DataComponents = {
 export type Implementation = {
   log: (...args: unknown[]) => void
   warn: (...args: unknown[]) => void
-
-  /**
-   * How to establish an AWAKE channel.
-   */
-  createChannel: (options: ChannelOptions) => Promise<Channel>
 
   /**
    * File system.
