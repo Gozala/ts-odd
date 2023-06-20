@@ -48,7 +48,7 @@ export class TransactionContext {
       async (accPromise: Promise<Ucan[]>, changedPath: Path.Distinctive<Partitioned<Partition>>): Promise<Ucan[]> => {
         const acc = await accPromise
 
-        const proof = await context.dependencies.reference.repositories.ucans.lookupFileSystemUcan(
+        const proof = await context.dependencies.reference.repositories.ucans.lookupFsWriteUcan(
           audience,
           changedPath
         )

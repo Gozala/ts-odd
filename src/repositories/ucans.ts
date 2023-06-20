@@ -41,46 +41,6 @@ export class Repo extends Repository<Ucan.Ucan> {
 
   // LOOKUPS
 
-  /**
-   * Look up a UCAN with a file system path.
-   */
-  lookupFileSystemUcan(
-    did: string,
-    path: DistinctivePath<Path.Segments>
-  ): Ucan.Ucan | null {
-    // "wnfs://<did>/<optional:partition>/<optional:path>": {
-    //   /* One of the following */
-    //   "fs/*": [{}],
-    //   "fs/read": [{}],
-    //   "fs/append": [{}],
-    //   "fs/overwrite": [{}],
-    //   "fs/delete": [{}],
-    // }
-
-    const fsUcans = this.fileSystemUcans()
-    const pathParts = Path.unwrap(path)
-
-    const results = [ "", ...pathParts ].reduce(
-      (acc: Ucan.Ucan[], _part, idx): Ucan.Ucan[] => {
-        const pathSoFar = Path.fromKind(Path.kind(path), ...(pathParts.slice(0, idx)))
-        const hierPart = `${did}/${Path.toPosix(pathSoFar)}`
-
-        return [
-          ...acc,
-          ...fsUcans.filter(ucan => {
-            return ucan.payload.att.find(cap => {
-              return cap.with.hierPart === hierPart && (cap.can === SUPERUSER || cap.can.namespace === "fs")
-            })
-          })
-        ]
-      },
-      []
-    )
-
-    // TODO: Need to sort by ability level, ie. prefer super user over anything else
-    return results[ 0 ] || null
-  }
-
   accountDID(): string {
     const ucan = this.accountUcans()[ 0 ]
     if (!ucan) throw new Error("Did not find an account UCAN to derive the account DID from")
@@ -93,10 +53,81 @@ export class Repo extends Repository<Ucan.Ucan> {
     )
   }
 
-  fileSystemUcans(): Ucan.Ucan[] {
+  fsReadUcans(): Ucan.Ucan[] {
+    return this.getAll().filter(ucan =>
+      (ucan.payload.fct || []).some(f => {
+        return Object.keys(f).some(a => a.startsWith("wnfs://"))
+      })
+    )
+  }
+
+  fsWriteUcans(): Ucan.Ucan[] {
     return this.getAll().filter(ucan =>
       ucan.payload.att.some(cap => cap.with.scheme === "wnfs")
     )
+  }
+
+  lookupFsReadUcan(
+    did: string,
+    path: DistinctivePath<Path.Segments>
+  ): Ucan.Ucan | null {
+    return this.lookupFsUcan(
+      this.fsWriteUcans(),
+      pathSoFar => ucan => {
+        return (ucan.payload.fct || []).some(f => {
+          return Object.keys(f).some(a => {
+            const withoutScheme = a.replace("wnfs://", "")
+            return withoutScheme === `${did}/${Path.toPosix(pathSoFar)}`
+          })
+        })
+      },
+      did,
+      path
+    )
+  }
+
+  lookupFsWriteUcan(
+    did: string,
+    path: DistinctivePath<Path.Segments>
+  ): Ucan.Ucan | null {
+    return this.lookupFsUcan(
+      this.fsWriteUcans(),
+      pathSoFar => ucan => {
+        const hierPart = `${did}/${Path.toPosix(pathSoFar)}`
+
+        return !!ucan.payload.att.find(cap => {
+          return cap.with.hierPart === hierPart && (cap.can === SUPERUSER || cap.can.namespace === "fs")
+        })
+      },
+      did,
+      path
+    )
+  }
+
+  private lookupFsUcan(
+    fsUcans: Ucan.Ucan[],
+    matcher: (pathSoFar: Path.Distinctive<Path.Segments>) => (ucan: Ucan.Ucan) => boolean,
+    did: string,
+    path: DistinctivePath<Path.Segments>
+  ): Ucan.Ucan | null {
+    const pathParts = Path.unwrap(path)
+
+    const results = [ "", ...pathParts ].reduce(
+      (acc: Ucan.Ucan[], _part, idx): Ucan.Ucan[] => {
+        const pathSoFar = Path.fromKind(Path.kind(path), ...(pathParts.slice(0, idx)))
+
+        return [
+          ...acc,
+          ...fsUcans.filter(
+            matcher(pathSoFar)
+          )
+        ]
+      },
+      []
+    )
+
+    // TODO: Need to sort by ability level, ie. prefer super user over anything else
+    return results[ 0 ] || null
   }
 
   rootIssuer(ucan: Ucan.Ucan): string {
