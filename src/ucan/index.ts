@@ -9,7 +9,7 @@ import { didToPublicKey, publicKeyToDid } from "../did/index.js"
 import { CID } from "../common/cid.js"
 
 
-export { Ucan, encode, encodeHeader, encodePayload, verify, parse, isExpired, isTooEarly, rootIssuer } from "@ucans/core"
+export { Ucan, encode, encodeHeader, encodePayload, verify, parse, isExpired, isTooEarly } from "@ucans/core"
 
 
 export async function build(

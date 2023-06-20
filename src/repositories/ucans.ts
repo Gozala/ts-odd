@@ -81,9 +81,15 @@ export class Repo extends Repository<Ucan.Ucan> {
     return results[ 0 ] || null
   }
 
+  accountDID(): string {
+    const ucan = this.accountUcans()[ 0 ]
+    if (!ucan) throw new Error("Did not find an account UCAN to derive the account DID from")
+    return this.rootIssuer(ucan)
+  }
+
   accountUcans(): Ucan.Ucan[] {
     return this.getAll().filter(ucan =>
-      ucan.payload.att.some(cap => cap.with.scheme === "did")
+      ucan.payload.att.some(cap => cap.with.scheme.match(/^https?$/))
     )
   }
 
@@ -91,6 +97,25 @@ export class Repo extends Repository<Ucan.Ucan> {
     return this.getAll().filter(ucan =>
       ucan.payload.att.some(cap => cap.with.scheme === "wnfs")
     )
+  }
+
+  rootIssuer(ucan: Ucan.Ucan): string {
+    if (ucan.payload.prf.length) {
+      return ucan.payload.prf.reduce(
+        (acc, prf) => {
+          // Always prefer the first proof.
+          // TBH, not sure what's best here.
+          if (acc) return acc
+
+          const prfUcan = this.getByKey(prf)
+          if (!prfUcan) throw new Error("Missing a UCAN in the repository")
+
+          return this.rootIssuer(prfUcan)
+        }
+      )
+    } else {
+      return ucan.payload.iss
+    }
   }
 
 }

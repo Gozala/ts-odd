@@ -69,13 +69,13 @@ export type Configuration<M extends Mode> = {
    */
   userMessages?: UserMessages
 } & (
-    M extends "capabilities" ? {
+    M extends "authority" ? {}
+    : M extends "delegate" ? {
       /**
        * Capabilities to ask a self-owned-login app.
        */
       permissions: Permissions
     }
-    : M extends "self-owned-login" ? {}
     : never
   )
 
@@ -84,25 +84,25 @@ export type Configuration<M extends Mode> = {
 // MODE
 
 
-export type Mode = "capabilities" | "self-owned-login"
+export type Mode = "authority" | "delegate"
 
 
-export type CapabilitiesMode = {
-  mode: "capabilities"
-
-  capabilities: {
-    request: () => void // TODO
-  }
-}
-
-
-export type SelfOwnedLoginMode = {
-  mode: "self-owned-login"
+export type AuthorityMode = {
+  mode: "authority"
 
   capabilities: {
     provide: () => void // TODO
   }
 } & AuthenticationStrategy
+
+
+export type DelegateMode = {
+  mode: "delegate"
+
+  capabilities: {
+    request: () => void // TODO
+  }
+}
 
 
 export type AuthenticationStrategy = Account.Implementation & {
@@ -111,8 +111,8 @@ export type AuthenticationStrategy = Account.Implementation & {
 
 
 export type ProgramPropertiesForMode<M extends Mode>
-  = M extends "capabilities" ? CapabilitiesMode
-  : M extends "self-owned-login" ? SelfOwnedLoginMode
+  = M extends "authority" ? AuthorityMode
+  : M extends "delegate" ? DelegateMode
   : never
 
 
@@ -132,7 +132,7 @@ export type UserMessages = {
 // 🛠
 
 
-export function addRootFileSystemPermissions(config: Configuration): Configuration {
+export function addRootFileSystemPermissions(config: Configuration<"delegate">): Configuration<"delegate"> {
   return { ...config, permissions: { ...config.permissions, ...ROOT_FILESYSTEM_PERMISSIONS } }
 }
 
@@ -140,6 +140,6 @@ export function addRootFileSystemPermissions(config: Configuration): Configurati
 /**
  * Generate a namespace string based on a configuration.
  */
-export function namespace(config: Configuration): string {
+export function namespace<M extends Mode>(config: Configuration<M>): string {
   return isString(config.namespace) ? config.namespace : appId(config.namespace)
 }

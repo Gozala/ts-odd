@@ -1,42 +1,9 @@
-import * as Fission from "../../../../common/fission.js"
-import * as Ucan from "../../../../ucan/index.js"
-
 import { USERNAME_BLOCKLIST } from "./blocklist.js"
 import { Endpoints } from "../../../../common/fission.js"
+import { Reference } from "../../../../components.js"
 
 
 export * from "../../../../common/fission.js"
-
-
-/**
- * Create a user account.
- */
-export async function createAccount(
-  endpoints: Endpoints,
-  dependencies: Dependencies,
-  userProps: {
-    username: string
-    email?: string
-  }
-): Promise<{ success: boolean }> {
-  const jwt = Ucan.encode(await Ucan.build({
-    audience: await Fission.did(endpoints),
-    dependencies: dependencies,
-  }))
-
-  const response = await fetch(Fission.apiUrl(endpoints, "/user"), {
-    method: "PUT",
-    headers: {
-      "authorization": `Bearer ${jwt}`,
-      "content-type": "application/json"
-    },
-    body: JSON.stringify(userProps)
-  })
-
-  return {
-    success: response.status < 300
-  }
-}
 
 
 /**
@@ -44,13 +11,14 @@ export async function createAccount(
  */
 export async function isUsernameAvailable(
   endpoints: Endpoints,
+  dnsLookup: Reference.Implementation[ "dns" ],
   username: string
 ): Promise<boolean> {
-  const resp = await fetch(
-    Fission.apiUrl(endpoints, `/user/data/${username}`)
+  const result = await dnsLookup.lookupDnsLink(
+    `${encodeURIComponent(username)}.${endpoints.userDomain}`
   )
 
-  return !resp.ok
+  return !!result
 }
 
 

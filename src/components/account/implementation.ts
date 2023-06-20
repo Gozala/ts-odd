@@ -20,6 +20,14 @@ export type Implementation = {
   >
 
 
+  // DIDS & UCAN
+
+  /**
+   * How should the ODD SDK identify a UCAN for this account system?
+   */
+  ucanIdentification: (ucan: Ucan) => boolean
+
+
   // OTHER
 
   /**
@@ -28,6 +36,7 @@ export type Implementation = {
    * These properties are passed to other components
    * which might need account identification.
    */
-  properties: () => Promise<Record<string, string>>
+  // properties: () => Promise<Record<string, string>>
+  // TODO: Do we need this?
 
 }

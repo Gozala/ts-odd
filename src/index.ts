@@ -61,19 +61,29 @@ export { FileSystem } from "./fs/class.js"
 
 export type Program<M extends Mode> = ProgramPropertiesForMode<M> & ShortHands & Events.ListenTo<Events.All<{}>> & {
   /**
-   * Configuration used to build this program.
-   */
-  configuration: Configuration<M>
-
-  /**
    * Components used to build this program.
    */
   components: Components
 
   /**
+   * Configuration used to build this program.
+   */
+  configuration: Configuration<M>
+
+  /**
    * Various file system methods.
    */
   fileSystem: FileSystemShortHands
+
+  /**
+   * Is the program "connected"?
+   *
+   * This essential means having all the required UCANs in possession.
+   * More specifically having the capabilities to query and/or mutate the
+   * file system based on what is configured, and if mutation is considered,
+   * to update the data root associated with the file system.
+   */
+  isConnected: () => boolean
 }
 
 
