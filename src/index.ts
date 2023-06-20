@@ -372,8 +372,7 @@ export const storage = {
  *
  * See the `program.fileSystem.load` function if you want to load the user's file system yourself.
  */
-export async function assemble(config: Configuration, components: Components): Promise<Program> {
-  const permissions = config.permissions
+export async function assemble<M extends Mode>(config: Configuration<M>, components: Components): Promise<Program<M>> {
   const { crypto, identifier } = components
 
   // Event emitters
@@ -393,7 +392,7 @@ export async function assemble(config: Configuration, components: Components): P
     },
     request(options?: Capabilities.RequestOptions) {
       return components.capabilities.request({
-        permissions,
+        permissions: config.permissions,
         ...(options || {})
       })
     },
@@ -414,7 +413,7 @@ export async function assemble(config: Configuration, components: Components): P
     fileSystem: {
       addSampleData: (fs: FileSystem) => FileSystemData.addSampleData(fs),
       load: (username: string) => loadFileSystem({ config, username, dependencies: components, eventEmitter: fsEvents }),
-      recover: (params: RecoverFileSystemParams) => recoverFileSystem({ auth, dependencies: components, ...params }),
+      recover: (params: RecoverFileSystemParams) => recoverFileSystem({ dependencies: components, ...params }),
     }
   }
 

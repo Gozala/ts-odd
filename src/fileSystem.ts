@@ -1,11 +1,8 @@
 import { CID } from "multiformats/cid"
 
 import * as DAG from "./dag/index.js"
-import * as DID from "./did/index.js"
 import * as Events from "./events.js"
-import * as RootKey from "./common/root-key.js"
 import * as RootTree from "./fs/rootTree.js"
-import * as Ucan from "./ucan/index.js"
 import * as Versions from "./fs/version.js"
 
 import { Configuration } from "./configuration.js"
@@ -13,18 +10,16 @@ import { Dependencies } from "./fs/types.js"
 import { Account, Crypto, Depot, Reference, Storage } from "./components.js"
 import { FileSystem } from "./fs/class.js"
 import { Maybe, EMPTY_CID } from "./common/index.js"
-import { RecoverFileSystemParams } from "./fs/types/params.js"
 import { RootBranch } from "./path/index.js"
 
 
 /**
  * Load a user's file system.
  */
-export async function loadFileSystem({ config, dependencies, eventEmitter, username }: {
+export async function loadFileSystem({ config, dependencies, eventEmitter }: {
   config: Configuration
   dependencies: Dependencies & { storage: Storage.Implementation }
   eventEmitter: Events.Emitter<Events.FileSystem>
-  username: string
 }): Promise<FileSystem> {
   const { crypto, depot, manners, reference, storage } = dependencies
 
@@ -34,11 +29,10 @@ export async function loadFileSystem({ config, dependencies, eventEmitter, usern
   // Repositories
   const cidLog = reference.repositories.cidLog
 
-  // Account
-  const account = { did: await reference.didRoot.lookup(username) }
-
   // Determine the correct CID of the file system to load
-  const dataCid = navigator.onLine ? await getDataRoot(reference, username, { maxRetries: 20 }) : null
+  const dataCid = navigator.onLine ? dependencies.reference.dataRoot.lookup(
+    dependencies.account.properties()
+  ) : null
   const logIdx = dataCid ? cidLog.indexOf(dataCid) : -1
 
   if (!navigator.onLine) {
@@ -111,67 +105,6 @@ export async function loadFileSystem({ config, dependencies, eventEmitter, usern
 }
 
 
-/**
- * Recover a user's file system.
- */
-export async function recoverFileSystem({
-  dependencies,
-  oldUsername,
-  newUsername,
-  readKey,
-}: {
-  dependencies: {
-    account: Account.Implementation
-    crypto: Crypto.Implementation
-    reference: Reference.Implementation
-    storage: Storage.Implementation
-  }
-} & RecoverFileSystemParams): Promise<{ success: boolean }> {
-
-  const { crypto, reference, storage } = dependencies
-  const newRootDID = await DID.agent(crypto)
-
-  // Register a new user with the `newUsername`
-  const { success } = await auth.register({
-    username: newUsername,
-  })
-  if (!success) {
-    throw new Error("Failed to register new user")
-  }
-
-  // Build an ephemeral UCAN to authorize the dataRoot.update call
-  const proof: string | null = await storage.getItem(storage.KEYS.ACCOUNT_UCAN)
-  const ucan = await Ucan.build({
-    dependencies,
-    potency: "APPEND",
-    resource: "*",
-    proof: proof ? proof : undefined,
-    lifetimeInSeconds: 60 * 3, // Three minutes
-    audience: newRootDID,
-    issuer: newRootDID,
-  })
-
-  const oldRootCID = await reference.dataRoot.lookup(oldUsername)
-  if (!oldRootCID) {
-    throw new Error("Failed to lookup oldUsername")
-  }
-
-  // Update the dataRoot of the new user
-  await reference.dataRoot.update(oldRootCID, ucan)
-
-  // Store the read key, which is namespaced using the account DID
-  await RootKey.store({
-    accountDID: newRootDID,
-    crypto: crypto,
-    readKey,
-  })
-
-  return {
-    success: true,
-  }
-}
-
-
 
 // VERSIONING
 
@@ -226,49 +159,4 @@ export async function checkFileSystemVersion(
 
 function alertIfPossible(str: string) {
   if (globalThis.alert != null) globalThis.alert(str)
-}
-
-
-
-// ROOT HELPERS
-
-
-/**
- * Get a user's data root
- *
- * @param username The user's name
- * @param options Optional parameters
- * @param options.maxRetries Maximum number of retry attempts
- * @param options.retryInterval Retry interval in milliseconds
- * @returns data root CID or null
- */
-async function getDataRoot(
-  reference: Reference.Implementation,
-  username: string,
-  options: { maxRetries?: number; retryInterval?: number }
-    = {}
-): Promise<CID | null> {
-  const maxRetries = options.maxRetries ?? 0
-  const retryInterval = options.retryInterval ?? 500
-
-  let dataCid = await reference.dataRoot.lookup(username).catch(() => null)
-  if (dataCid) return (dataCid.toString() === EMPTY_CID ? null : dataCid)
-
-  return new Promise((resolve, reject) => {
-    let attempt = 0
-
-    const dataRootInterval = setInterval(async () => {
-      dataCid = await reference.dataRoot.lookup(username).catch(() => null)
-
-      if (!dataCid && attempt < maxRetries) {
-        attempt++
-        return
-      } else if (attempt >= maxRetries) {
-        reject("Failed to load data root")
-      }
-
-      clearInterval(dataRootInterval)
-      resolve(dataCid?.toString() === EMPTY_CID ? null : dataCid)
-    }, retryInterval)
-  })
 }

@@ -50,6 +50,15 @@ export async function canRegister(
 }
 
 
+export async function properties(
+  endpoints: Fission.Endpoints,
+  dependencies: Dependencies
+) {
+  const username = "TODO"
+  return { username }
+}
+
+
 export async function register(
   endpoints: Fission.Endpoints,
   dependencies: Dependencies,
@@ -103,6 +112,6 @@ export function implementation(
     canRegister: (...args) => canRegister(endpoints, dependencies, ...args),
     register: (...args) => register(endpoints, dependencies, ...args),
 
-    // properties: () => Promise<Record<string, string>>
+    properties: () => properties(endpoints, dependencies),
   }
 }

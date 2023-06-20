@@ -36,7 +36,6 @@ export type Implementation = {
    * These properties are passed to other components
    * which might need account identification.
    */
-  // properties: () => Promise<Record<string, string>>
-  // TODO: Do we need this?
+  properties: () => Promise<Record<string, string>>
 
 }
