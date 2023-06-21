@@ -7,10 +7,6 @@ import * as Storage from "../../../components/storage/implementation.js"
 import * as CIDLogRepo from "../../../repositories/cid-log.js"
 import * as UcansRepo from "../../../repositories/ucans.js"
 
-import * as DID from "../../../did/index.js"
-import * as DOH from "../dns-over-https.js"
-import * as Ucan from "../../../ucan/index.js"
-
 
 // 🧩
 
@@ -23,16 +19,6 @@ export type Dependencies = {
 
 
 
-// 🛠
-
-
-export async function didRootLookup(dependencies: Dependencies, username: string) {
-  const maybeUcan: string | null = await dependencies.storage.getItem(dependencies.storage.KEYS.ACCOUNT_UCAN)
-  return maybeUcan ? Ucan.rootIssuer(maybeUcan) : await DID.write(dependencies.crypto)
-}
-
-
-
 // 🛳
 
 
@@ -41,10 +27,6 @@ export async function implementation(dependencies: Dependencies): Promise<Implem
     dataRoot: {
       lookup: () => { throw new Error("Not implemented") },
       update: () => { throw new Error("Not implemented") }
-    },
-    dns: {
-      lookupDnsLink: DOH.lookupDnsLink,
-      lookupTxtRecord: DOH.lookupTxtRecord,
     },
     repositories: {
       cidLog: await CIDLogRepo.create({ storage: dependencies.storage }),

@@ -1,7 +1,8 @@
 import { Account } from "./components.js"
 import { AppInfo } from "./appInfo.js"
-import { isString } from "./common/type-checks.js"
+import { hasProp, isString } from "./common/type-checks.js"
 import { appId, Permissions, ROOT_FILESYSTEM_PERMISSIONS } from "./permissions.js"
+import { RequestOptions } from "./components/capabilities/implementation.js"
 
 
 // CONFIGURATION
@@ -91,7 +92,7 @@ export type AuthorityMode = {
   mode: "authority"
 
   capabilities: {
-    provide: () => void // TODO
+    provide: () => Promise<void>
   }
 } & AuthenticationStrategy
 
@@ -100,7 +101,7 @@ export type DelegateMode = {
   mode: "delegate"
 
   capabilities: {
-    request: () => void // TODO
+    request: (options: RequestOptions) => Promise<void>
   }
 }
 
@@ -134,6 +135,12 @@ export type UserMessages = {
 
 export function addRootFileSystemPermissions(config: Configuration<"delegate">): Configuration<"delegate"> {
   return { ...config, permissions: { ...config.permissions, ...ROOT_FILESYSTEM_PERMISSIONS } }
+}
+
+// export function mode<M extends Mode = "authority">(config: Configuration<M>): "authority"
+// export function mode<M extends Mode = "delegate">(config: Configuration<M>): "delegate"
+export function mode<M extends Mode>(config: Configuration<M>): "authority" | "delegate" {
+  return hasProp(config, "permissions") ? "delegate" : "authority"
 }
 
 

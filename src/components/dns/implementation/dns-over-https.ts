@@ -1,17 +1,8 @@
-/**
- * Lookup a DNS TXT record.
- *
- * Race lookups to Google & Cloudflare, return the first to finish
- *
- * @param domain The domain to get the TXT record from.
- * @returns Contents of the TXT record.
- */
-export async function lookupTxtRecord(domain: string): Promise<string | null> {
-  return Promise.any([
-    googleLookup(domain),
-    cloudflareLookup(domain)
-  ])
-}
+import { Implementation } from "../implementation.js"
+
+
+// FUNDAMENTALS
+
 
 /**
  * Lookup DNS TXT record using Google DNS-over-HTTPS
@@ -77,6 +68,26 @@ export function dnsOverHttps(url: string): Promise<string | null> {
     })
 }
 
+
+
+// 🛠
+
+
+/**
+ * Lookup a DNS TXT record.
+ *
+ * Race lookups to Google & Cloudflare, return the first to finish
+ *
+ * @param domain The domain to get the TXT record from.
+ * @returns Contents of the TXT record.
+ */
+export async function lookupTxtRecord(domain: string): Promise<string | null> {
+  return Promise.any([
+    googleLookup(domain),
+    cloudflareLookup(domain)
+  ])
+}
+
 /**
  * Lookup a DNSLink.
  *
@@ -93,4 +104,16 @@ export async function lookupDnsLink(domain: string): Promise<string | null> {
   return txt && !txt.includes("/ipns/")
     ? txt.replace(/^dnslink=/, "").replace(/^\/ipfs\//, "")
     : null
+}
+
+
+
+// 🛳️
+
+
+export function implementation(): Implementation {
+  return {
+    lookupDnsLink,
+    lookupTxtRecord
+  }
 }

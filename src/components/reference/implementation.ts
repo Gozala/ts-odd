@@ -11,10 +11,6 @@ export type Implementation = {
     lookup: (accountProperties: Record<string, string>) => Promise<CID | null>
     update: (cid: CID, proof: Ucan) => Promise<{ success: boolean }>
   }
-  dns: {
-    lookupDnsLink: (domain: string) => Promise<string | null>
-    lookupTxtRecord: (domain: string) => Promise<string | null>
-  }
   repositories: {
     cidLog: CIDLog.Repo
     ucans: Ucans.Repo

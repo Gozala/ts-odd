@@ -13,14 +13,18 @@ export type Implementation = {
   >
 
   /**
-   * Register an account.
+   * How to register an account with this account system.
    */
   register: (formValues: Record<string, string>, identifierUcan?: Ucan) => Promise<
     { ok: true, ucans: Ucan[] } | { ok: false }
   >
 
 
-  // DIDS & UCAN
+  // DIDS & UCANS
+
+  hasSufficientCapabilities: (accountUcans: Ucan[]) => Promise<boolean>
+
+  retrieveCapabilities: () => Promise<Ucan[]>
 
   /**
    * How should the ODD SDK identify a UCAN for this account system?

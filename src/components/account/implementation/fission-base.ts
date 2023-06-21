@@ -2,7 +2,7 @@ import * as Fission from "./fission/index.js"
 import * as Ucan from "../../../ucan/index.js"
 
 import { Implementation } from "../implementation.js"
-import { Crypto, Reference } from "../../../components.js"
+import { Crypto, DNS } from "../../../components.js"
 
 
 // 🧩
@@ -10,7 +10,7 @@ import { Crypto, Reference } from "../../../components.js"
 
 export type Dependencies = {
   crypto: Crypto.Implementation
-  reference: Reference.Implementation
+  dns: DNS.Implementation
 }
 
 
@@ -39,7 +39,7 @@ export async function canRegister(
     reason: "Username is not valid."
   }
 
-  if (await Fission.isUsernameAvailable(endpoints, dependencies.reference.dns, username) === false) return {
+  if (await Fission.isUsernameAvailable(endpoints, dependencies.dns, username) === false) return {
     ok: false,
     reason: "Username is not available."
   }
@@ -78,6 +78,7 @@ export async function register(
     dependencies,
 
     audience: await Fission.did(endpoints),
+    proofs: identifierUcan ? [ Ucan.encode(identifierUcan) ] : undefined
   }))
 
   const response = await fetch(Fission.apiUrl(endpoints, "/user"), {
@@ -101,6 +102,12 @@ export async function register(
 }
 
 
+export function ucanIdentification(ucan: Ucan.Ucan): boolean {
+  return ucan.payload.att.some(cap => cap.with.scheme.match(/^https?$/))
+}
+
+
+
 // 🛳
 
 
@@ -110,8 +117,8 @@ export function implementation(
 ): Implementation {
   return {
     canRegister: (...args) => canRegister(endpoints, dependencies, ...args),
-    register: (...args) => register(endpoints, dependencies, ...args),
-
     properties: () => properties(endpoints, dependencies),
+    register: (...args) => register(endpoints, dependencies, ...args),
+    ucanIdentification
   }
 }

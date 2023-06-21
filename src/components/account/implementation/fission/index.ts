@@ -1,6 +1,6 @@
 import { USERNAME_BLOCKLIST } from "./blocklist.js"
 import { Endpoints } from "../../../../common/fission.js"
-import { Reference } from "../../../../components.js"
+import { DNS } from "../../../../components.js"
 
 
 export * from "../../../../common/fission.js"
@@ -11,7 +11,7 @@ export * from "../../../../common/fission.js"
  */
 export async function isUsernameAvailable(
   endpoints: Endpoints,
-  dnsLookup: Reference.Implementation[ "dns" ],
+  dnsLookup: DNS.Implementation,
   username: string
 ): Promise<boolean> {
   const result = await dnsLookup.lookupDnsLink(
