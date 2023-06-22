@@ -4,7 +4,7 @@ import * as Ucan from "../ucan/index.js"
 
 import Repository, { RepositoryOptions } from "../repository.js"
 import { DistinctivePath } from "../path/index.js"
-import { SUPERUSER } from "@ucans/core"
+import { DelegationChain, SUPERUSER } from "@ucans/core"
 
 
 export function create({ storage }: { storage: Storage.Implementation }): Promise<Repo> {
@@ -24,7 +24,7 @@ type Collection = Record<string, Ucan.Ucan>
 
 export class Repo extends Repository<Collection, Ucan.Ucan> {
 
-  indexedByAudience: Record<string, Ucan.Ucan[]>
+  private indexedByAudience: Record<string, Ucan.Ucan[]>
 
 
   private constructor(options: RepositoryOptions) {
@@ -95,6 +95,14 @@ export class Repo extends Repository<Collection, Ucan.Ucan> {
 
 
   // LOOKUPS
+
+  audienceChains(audience: string): DelegationChain[] {
+    // TODO
+  }
+
+  audienceUcans(audience: string): Ucan.Ucan[] {
+    return this.indexedByAudience[ audience ]
+  }
 
   // fsReadUcans(): Ucan.Ucan[] {
   //   return this.getAll().filter(ucan =>

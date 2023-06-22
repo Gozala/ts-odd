@@ -9,9 +9,9 @@ export type RepositoryOptions = {
 
 export default abstract class Repository<C, I> {
 
-  memoryCollection: C
-  storage: Storage.Implementation
-  storageName: string
+  private memoryCollection: C
+  private storage: Storage.Implementation
+  private storageName: string
 
   abstract emptyCollection(): C
   abstract mergeCollections(a: C, b: C): C

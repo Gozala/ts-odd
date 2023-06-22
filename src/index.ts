@@ -211,11 +211,16 @@ export async function assemble<M extends Mode>(config: Configuration<M>, compone
 
   // Is connected?
   async function isConnected() {
-    const accountUcans = ucansRepository.getAll().filter(
-      components.account.ucanIdentification
-    )
+    // TODO: Not sure yet if the audience will be the identity DID or agent DID
+    const audience = DID.agent(components.crypto)
+    const accountChains = ucansRepository.audienceChains(audience)
 
-    // TODO
+    // TODO:
+    // Depends on the mode what happens here I guess.
+    // I was thinking the delegate mode should only call `account.canUpdateDataRoot()`
+    // when write permissions have been asked (as opposed to solely asking for read permissions).
+    // Authority mode always expects to write, so it should always call it.
+    // Although there should probably be a `account.hasSufficientCapabilities()` for the authority mode.
   }
 
   // Create `Program`
