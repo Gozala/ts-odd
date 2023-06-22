@@ -19,134 +19,177 @@ export function create({ storage }: { storage: Storage.Implementation }): Promis
 // CLASS
 
 
-export class Repo extends Repository<Ucan.Ucan> {
+type Collection = Record<string, Ucan.Ucan>
+
+
+export class Repo extends Repository<Collection, Ucan.Ucan> {
+
+  indexedByAudience: Record<string, Ucan.Ucan[]>
+
 
   private constructor(options: RepositoryOptions) {
     super(options)
+    this.indexedByAudience = {}
+  }
+
+
+  // IMPLEMENTATION
+
+  emptyCollection() {
+    return {}
+  }
+
+  mergeCollections(a: Collection, b: Collection): Collection {
+    return {
+      ...a,
+      ...b
+    }
+  }
+
+  async toCollection(item: Ucan.Ucan): Promise<Collection> {
+    return { [ (await Ucan.cid(item)).toString() ]: item }
+  }
+
+  collectionUpdateCallback(collection: Collection) {
+    this.indexedByAudience = Object.entries(collection).reduce(
+      (acc: Record<string, Ucan.Ucan[]>, [ k, v ]) => {
+        return {
+          ...acc,
+          [ v.payload.aud ]: [ ...(acc[ v.payload.aud ] || []), v ]
+        }
+      },
+      {}
+    )
   }
 
 
   // ENCODING
 
-  fromJSON(a: string): Ucan.Ucan { return Ucan.decode(a) }
-  toJSON(a: Ucan.Ucan): string { return Ucan.encode(a) }
+  fromJSON(a: string): Collection {
+    const encodedObj = JSON.parse(a)
 
-  async toDictionary(items: Ucan.Ucan[]) {
-    return await items.reduce(
-      async (acc, ucan) => ({ ...(await acc), [ (await Ucan.cid(ucan)).toString() ]: ucan }),
-      Promise.resolve({})
+    return Object.entries(encodedObj).reduce(
+      (acc, [ k, v ]) => {
+        return {
+          ...acc,
+          [ k ]: Ucan.decode(v as string)
+        }
+      },
+      {}
     )
+  }
+
+  toJSON(a: Collection): string {
+    const encodedObj = Object.entries(a).reduce(
+      (acc, [ k, v ]) => {
+        return {
+          ...acc,
+          [ k ]: Ucan.encode(v)
+        }
+      },
+      {}
+    )
+
+    return JSON.stringify(encodedObj)
   }
 
 
   // LOOKUPS
 
-  accountDID(): string {
-    const ucan = this.accountUcans()[ 0 ]
-    if (!ucan) throw new Error("Did not find an account UCAN to derive the account DID from")
-    return this.rootIssuer(ucan)
-  }
+  // fsReadUcans(): Ucan.Ucan[] {
+  //   return this.getAll().filter(ucan =>
+  //     (ucan.payload.fct || []).some(f => {
+  //       return Object.keys(f).some(a => a.startsWith("wnfs://"))
+  //     })
+  //   )
+  // }
 
-  accountUcans(): Ucan.Ucan[] {
-    return this.getAll().filter(ucan =>
-      ucan.payload.att.some(cap => cap.with.scheme.match(/^https?$/))
-    )
-  }
+  // fsWriteUcans(): Ucan.Ucan[] {
+  //   return this.getAll().filter(ucan =>
+  //     ucan.payload.att.some(cap => cap.with.scheme === "wnfs")
+  //   )
+  // }
 
-  fsReadUcans(): Ucan.Ucan[] {
-    return this.getAll().filter(ucan =>
-      (ucan.payload.fct || []).some(f => {
-        return Object.keys(f).some(a => a.startsWith("wnfs://"))
-      })
-    )
-  }
+  // lookupFsReadUcan(
+  //   did: string,
+  //   path: DistinctivePath<Path.Segments>
+  // ): Ucan.Ucan | null {
+  //   return this.lookupFsUcan(
+  //     this.fsWriteUcans(),
+  //     pathSoFar => ucan => {
+  //       return (ucan.payload.fct || []).some(f => {
+  //         return Object.keys(f).some(a => {
+  //           const withoutScheme = a.replace("wnfs://", "")
+  //           return withoutScheme === `${did}/${Path.toPosix(pathSoFar)}`
+  //         })
+  //       })
+  //     },
+  //     did,
+  //     path
+  //   )
+  // }
 
-  fsWriteUcans(): Ucan.Ucan[] {
-    return this.getAll().filter(ucan =>
-      ucan.payload.att.some(cap => cap.with.scheme === "wnfs")
-    )
-  }
+  // lookupFsWriteUcan(
+  //   did: string,
+  //   path: DistinctivePath<Path.Segments>
+  // ): Ucan.Ucan | null {
+  //   return this.lookupFsUcan(
+  //     this.fsWriteUcans(),
+  //     pathSoFar => ucan => {
+  //       const hierPart = `${did}/${Path.toPosix(pathSoFar)}`
 
-  lookupFsReadUcan(
-    did: string,
-    path: DistinctivePath<Path.Segments>
-  ): Ucan.Ucan | null {
-    return this.lookupFsUcan(
-      this.fsWriteUcans(),
-      pathSoFar => ucan => {
-        return (ucan.payload.fct || []).some(f => {
-          return Object.keys(f).some(a => {
-            const withoutScheme = a.replace("wnfs://", "")
-            return withoutScheme === `${did}/${Path.toPosix(pathSoFar)}`
-          })
-        })
-      },
-      did,
-      path
-    )
-  }
+  //       return !!ucan.payload.att.find(cap => {
+  //         return cap.with.hierPart === hierPart && (cap.can === SUPERUSER || cap.can.namespace === "fs")
+  //       })
+  //     },
+  //     did,
+  //     path
+  //   )
+  // }
 
-  lookupFsWriteUcan(
-    did: string,
-    path: DistinctivePath<Path.Segments>
-  ): Ucan.Ucan | null {
-    return this.lookupFsUcan(
-      this.fsWriteUcans(),
-      pathSoFar => ucan => {
-        const hierPart = `${did}/${Path.toPosix(pathSoFar)}`
+  // private lookupFsUcan(
+  //   fsUcans: Ucan.Ucan[],
+  //   matcher: (pathSoFar: Path.Distinctive<Path.Segments>) => (ucan: Ucan.Ucan) => boolean,
+  //   did: string,
+  //   path: DistinctivePath<Path.Segments>
+  // ): Ucan.Ucan | null {
+  //   const pathParts = Path.unwrap(path)
 
-        return !!ucan.payload.att.find(cap => {
-          return cap.with.hierPart === hierPart && (cap.can === SUPERUSER || cap.can.namespace === "fs")
-        })
-      },
-      did,
-      path
-    )
-  }
+  //   const results = [ "", ...pathParts ].reduce(
+  //     (acc: Ucan.Ucan[], _part, idx): Ucan.Ucan[] => {
+  //       const pathSoFar = Path.fromKind(Path.kind(path), ...(pathParts.slice(0, idx)))
 
-  private lookupFsUcan(
-    fsUcans: Ucan.Ucan[],
-    matcher: (pathSoFar: Path.Distinctive<Path.Segments>) => (ucan: Ucan.Ucan) => boolean,
-    did: string,
-    path: DistinctivePath<Path.Segments>
-  ): Ucan.Ucan | null {
-    const pathParts = Path.unwrap(path)
+  //       return [
+  //         ...acc,
+  //         ...fsUcans.filter(
+  //           matcher(pathSoFar)
+  //         )
+  //       ]
+  //     },
+  //     []
+  //   )
 
-    const results = [ "", ...pathParts ].reduce(
-      (acc: Ucan.Ucan[], _part, idx): Ucan.Ucan[] => {
-        const pathSoFar = Path.fromKind(Path.kind(path), ...(pathParts.slice(0, idx)))
+  //   // TODO: Need to sort by ability level, ie. prefer super user over anything else
+  //   return results[ 0 ] || null
+  // }
 
-        return [
-          ...acc,
-          ...fsUcans.filter(
-            matcher(pathSoFar)
-          )
-        ]
-      },
-      []
-    )
+  // rootIssuer(ucan: Ucan.Ucan): string {
+  //   if (ucan.payload.prf.length) {
+  //     return ucan.payload.prf.reduce(
+  //       (acc, prf) => {
+  //         // Always prefer the first proof.
+  //         // TBH, not sure what's best here.
+  //         if (acc) return acc
 
-    // TODO: Need to sort by ability level, ie. prefer super user over anything else
-    return results[ 0 ] || null
-  }
+  //         const prfUcan = this.getByKey(prf)
+  //         if (!prfUcan) throw new Error("Missing a UCAN in the repository")
 
-  rootIssuer(ucan: Ucan.Ucan): string {
-    if (ucan.payload.prf.length) {
-      return ucan.payload.prf.reduce(
-        (acc, prf) => {
-          // Always prefer the first proof.
-          // TBH, not sure what's best here.
-          if (acc) return acc
-
-          const prfUcan = this.getByKey(prf)
-          if (!prfUcan) throw new Error("Missing a UCAN in the repository")
-
-          return this.rootIssuer(prfUcan)
-        }
-      )
-    } else {
-      return ucan.payload.iss
-    }
-  }
+  //         return this.rootIssuer(prfUcan)
+  //       }
+  //     )
+  //   } else {
+  //     return ucan.payload.iss
+  //   }
+  // }
 
 }
