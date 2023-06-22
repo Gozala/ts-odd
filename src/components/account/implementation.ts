@@ -20,26 +20,24 @@ export type Implementation = {
   >
 
 
+  // DATA ROOT
+
+  /**
+   * Do we have the ability to update the data root?
+   */
+  canUpdateDataRoot: (accountUcans: Ucan[]) => Promise<boolean>
+
+  /**
+   * How to update the data root, the top-level pointer of the file system.
+   */
+  updateDataRoot: (accountUcans: Ucan[]) => Promise<{ ok: true } | { ok: false, reason: string }>
+
+
   // DIDS & UCANS
-
-  hasSufficientCapabilities: (accountUcans: Ucan[]) => Promise<boolean>
-
-  retrieveCapabilities: () => Promise<Ucan[]>
 
   /**
    * How should the ODD SDK identify a UCAN for this account system?
    */
   ucanIdentification: (ucan: Ucan) => boolean
-
-
-  // OTHER
-
-  /**
-   * How is an account represented?
-   *
-   * These properties are passed to other components
-   * which might need account identification.
-   */
-  properties: () => Promise<Record<string, string>>
 
 }

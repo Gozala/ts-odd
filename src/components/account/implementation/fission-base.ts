@@ -15,7 +15,7 @@ export type Dependencies = {
 
 
 
-// 🛠
+// CREATION
 
 
 export async function canRegister(
@@ -47,15 +47,6 @@ export async function canRegister(
   return {
     ok: true
   }
-}
-
-
-export async function properties(
-  endpoints: Fission.Endpoints,
-  dependencies: Dependencies
-) {
-  const username = "TODO"
-  return { username }
 }
 
 
@@ -102,6 +93,25 @@ export async function register(
 }
 
 
+// DATA ROOT
+
+
+export async function canUpdateDataRoot(accountUcans: Ucan.Ucan[]): Promise<boolean> {
+  // TODO: Check if we have the capability to update the data root.
+  //       Or in the case of the old Fission server, any account UCAN.
+  return true
+}
+
+
+export async function updateDataRoot(accountUcans: Ucan.Ucan[]): Promise<void> {
+  //
+}
+
+
+
+// DIDS & UCANS
+
+
 export function ucanIdentification(ucan: Ucan.Ucan): boolean {
   return ucan.payload.att.some(cap => cap.with.scheme.match(/^https?$/))
 }
@@ -117,8 +127,10 @@ export function implementation(
 ): Implementation {
   return {
     canRegister: (...args) => canRegister(endpoints, dependencies, ...args),
-    properties: () => properties(endpoints, dependencies),
     register: (...args) => register(endpoints, dependencies, ...args),
+
+    canUpdateDataRoot: (...args) => canUpdateDataRoot(endpoints, dependencies, ...args),
+
     ucanIdentification
   }
 }

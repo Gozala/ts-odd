@@ -1,13 +1,15 @@
 import localforage from "localforage"
 
 import * as Auth from "./auth.js"
+import * as CIDLog from "./repositories/cid-log.js"
 import * as Config from "./configuration.js"
 import * as DID from "./did/local.js"
 import * as Events from "./events.js"
 import * as Extension from "./extension/index.js"
 import * as FileSystemData from "./fs/data.js"
+import * as UcanRepository from "./repositories/ucans.js"
 
-import { Account, Capabilities, Crypto, Depot, Identifier, Manners, Reference, Storage } from "./components.js"
+import { Account, Crypto, Depot, Identifier, Manners, Storage } from "./components.js"
 import { Components } from "./components.js"
 import { Configuration, Mode, ProgramPropertiesForMode, namespace } from "./configuration.js"
 import { FileSystem } from "./fs/class.js"
@@ -23,13 +25,9 @@ import { type RecoverFileSystemParams } from "./fs/types/params.js"
 // IMPLEMENTATIONS
 
 
-import * as BaseReference from "./components/reference/implementation/base.js"
 import * as BrowserCrypto from "./components/crypto/implementation/browser.js"
 import * as BrowserStorage from "./components/storage/implementation/browser.js"
 import * as FissionIpfsProduction from "./components/depot/implementation/fission-ipfs-production.js"
-import * as FissionLobbyBase from "./components/capabilities/implementation/fission-lobby.js"
-import * as FissionLobbyProduction from "./components/capabilities/implementation/fission-lobby-production.js"
-import * as FissionReferenceProduction from "./components/reference/implementation/fission-production.js"
 import * as ProperManners from "./components/manners/implementation/base.js"
 
 
@@ -48,7 +46,6 @@ export * as did from "./did/index.js"
 export * as fission from "./common/fission.js"
 export * as path from "./path/index.js"
 
-export { AccountLinkingConsumer, AccountLinkingProducer } from "./linking/index.js"
 export { FileSystem } from "./fs/class.js"
 
 
@@ -56,7 +53,7 @@ export { FileSystem } from "./fs/class.js"
 // TYPES & CONSTANTS
 
 
-export type Program<M extends Mode> = ProgramPropertiesForMode<M> & ShortHands & Events.ListenTo<Events.All<{}>> & {
+export type Program<M extends Mode> = ProgramPropertiesForMode<M> & ShortHands & Events.ListenTo<Events.All> & {
   /**
    * Components used to build this program.
    */
@@ -176,6 +173,10 @@ export async function assemble<M extends Mode>(config: Configuration<M>, compone
   const fsEvents = Events.createEmitter<Events.FileSystem>()
   const allEvents = fsEvents // Events.merge()
 
+  // Create repositories
+  const cidLog = await CIDLog.create({ storage: components.storage })
+  const ucansRepository = await UcanRepository.create({ storage: components.storage })
+
   // Mode implementation
   const modeImplementation = (() => {
     switch (mode) {
@@ -210,17 +211,11 @@ export async function assemble<M extends Mode>(config: Configuration<M>, compone
 
   // Is connected?
   async function isConnected() {
-    const accountUcans = components.reference.repositories.ucans.getAll().filter(
+    const accountUcans = ucansRepository.getAll().filter(
       components.account.ucanIdentification
     )
 
     // TODO
-    if (await components.account.hasSufficientCapabilities(accountUcans)) {
-      return {
-        isConnected: false,
-        reason: "Insufficient capabilities, you might need to call `program.auth.retrieveCapabilities()`"
-      }
-    }
   }
 
   // Create `Program`
@@ -332,17 +327,12 @@ export async function gatherComponents(setup: Partial<Components> & Configuratio
   const manners = setup.manners || defaultMannersComponent(config)
   const storage = setup.storage || defaultStorageComponent(config)
 
-  const reference = setup.reference || await defaultReferenceComponent({ crypto, manners, storage })
   const depot = setup.depot || await defaultDepotComponent({ storage }, config)
-  const capabilities = setup.capabilities || defaultCapabilitiesComponent({ crypto })
-  const auth = setup.auth || defaultAuthComponent({ crypto, reference, storage })
 
   return {
-    capabilities,
     crypto,
     depot,
     manners,
-    reference,
     storage,
   }
 }
@@ -351,16 +341,6 @@ export async function gatherComponents(setup: Partial<Components> & Configuratio
 
 // DEFAULT COMPONENTS
 
-
-export function defaultAuthComponent({ crypto, reference, storage }: BaseAuth.Dependencies): Auth.Implementation<Components> {
-  return FissionAuthWnfsProduction.implementation({
-    crypto, reference, storage,
-  })
-}
-
-export function defaultCapabilitiesComponent({ crypto }: FissionLobbyBase.Dependencies): CapabilitiesImpl.Implementation {
-  return FissionLobbyProduction.implementation({ crypto })
-}
 
 export function defaultCryptoComponent(config: Configuration): Promise<Crypto.Implementation> {
   return BrowserCrypto.implementation({
@@ -380,14 +360,6 @@ export function defaultDepotComponent({ storage }: { storage: Storage.Implementa
 export function defaultMannersComponent(config: Configuration): Manners.Implementation {
   return ProperManners.implementation({
     configuration: config
-  })
-}
-
-export function defaultReferenceComponent({ crypto, manners, storage }: BaseReference.Dependencies): Promise<Reference.Implementation> {
-  return FissionReferenceProduction.implementation({
-    crypto,
-    manners,
-    storage,
   })
 }
 
