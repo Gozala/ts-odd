@@ -1,5 +1,5 @@
 import { CID } from "../../common/cid.js"
-import { Ucan } from "../../ucan/index.js"
+import { Capability, Ucan } from "../../ucan/index.js"
 
 
 export type Implementation = {
@@ -26,19 +26,11 @@ export type Implementation = {
   /**
    * Do we have the ability to update the data root?
    */
-  canUpdateDataRoot: (accountUcans: Ucan[]) => Promise<boolean>
+  canUpdateDataRoot: (capabilities: Capability[]) => Promise<boolean>
 
   /**
    * How to update the data root, the top-level pointer of the file system.
    */
   updateDataRoot: (dataRoot: CID, proofs: Ucan[]) => Promise<{ ok: true } | { ok: false, reason: string }>
-
-
-  // DIDS & UCANS
-
-  /**
-   * How should the ODD SDK identify a UCAN for this account system?
-   */
-  ucanIdentification: (ucan: Ucan) => boolean
 
 }

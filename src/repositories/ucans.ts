@@ -2,6 +2,7 @@ import * as Storage from "../components/storage/implementation"
 import * as Ucan from "../ucan/index.js"
 
 import Repository, { RepositoryOptions } from "../repository.js"
+import { CID, Maybe, isString } from "../common/index.js"
 
 
 export function create({ storage }: { storage: Storage.Implementation }): Promise<Repo> {
@@ -92,6 +93,11 @@ export class Repo extends Repository<Collection, Ucan.Ucan> {
 
 
   // LOOKUPS
+
+  getByCID(cid: CID | string): Maybe<Ucan.Ucan> {
+    const cidString = isString(cid) ? cid : cid.toString()
+    return this.collection[ cidString ]
+  }
 
   audienceUcans(audience: string): Ucan.Ucan[] {
     return this.indexedByAudience[ audience ]

@@ -130,7 +130,5 @@ export function implementation(
     register: (...args) => register(endpoints, dependencies, ...args),
 
     canUpdateDataRoot: (...args) => canUpdateDataRoot(endpoints, dependencies, ...args),
-
-    ucanIdentification
   }
 }

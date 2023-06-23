@@ -7,9 +7,11 @@ import { sha256 } from "multiformats/hashes/sha2"
 import { Crypto } from "../components.js"
 import { didToPublicKey, publicKeyToDid } from "../did/index.js"
 import { CID } from "../common/cid.js"
+import { BuildParams, Keypair } from "./types.js"
 
 
-export { Ucan, encode, encodeHeader, encodePayload, verify, parse, isExpired, isTooEarly } from "@ucans/core"
+export { encode, encodeHeader, encodePayload, verify, parse, isExpired, isTooEarly } from "@ucans/core"
+export * from "./types.js"
 
 
 // 🛠️
@@ -104,30 +106,3 @@ export async function plugins(crypto: Crypto.Implementation): Promise<Ucans.Plug
     {}
   )
 }
-
-
-
-// ㊙️
-
-
-type BuildParams = {
-  // from/to
-  audience: string
-  issuer?: Keypair
-
-  // capabilities
-  capabilities?: Array<Ucans.Capability>
-
-  // time bounds
-  lifetimeInSeconds?: number // expiration overrides lifetimeInSeconds
-  expiration?: number
-  notBefore?: number
-
-  // proofs / other info
-  facts?: Array<Ucans.Fact>
-  proofs?: Array<string>
-  addNonce?: boolean
-}
-
-
-type Keypair = Ucans.DidableKey

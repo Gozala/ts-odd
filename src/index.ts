@@ -8,7 +8,7 @@ import * as DID from "./did/local.js"
 import * as Events from "./events.js"
 import * as Extension from "./extension/index.js"
 import * as FileSystemData from "./fs/data.js"
-import * as Ucan from "./ucan/index.js"
+import * as UcanChain from "./ucan/chain.js"
 import * as UcanRepository from "./repositories/ucans.js"
 
 import { Account, Crypto, Depot, Identifier, Manners, Storage } from "./components.js"
@@ -216,12 +216,10 @@ export async function assemble<M extends Mode>(config: Configuration<M>, compone
     // TODO: Not sure yet if the audience will be the identity DID or agent DID
     const audience = await DID.agent(components.crypto)
     const audienceUcans = ucansRepository.audienceUcans(audience)
-    const accountUcans = audienceUcans.filter(components.account.ucanIdentification)
 
-    delegationChains(
-      await Ucan.plugins(components.crypto)
-    )(
-
+    // TODO: This could be done better, waiting on rs-ucan integration
+    const capabilities = audienceUcans.flatMap(
+      ucan => UcanChain.listCapabilities(ucansRepository, ucan)
     )
 
     // TODO:
