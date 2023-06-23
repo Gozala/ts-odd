@@ -57,19 +57,19 @@ export class Repo extends Repository<CID[], CID> {
   // 🛠️
 
   find(predicate: (value: CID, index: number) => boolean): CID | null {
-    return this.memoryCollection.find(predicate) || null
+    return this.collection.find(predicate) || null
   }
 
   getByIndex(idx: number): CID | null {
-    return this.memoryCollection[ idx ]
+    return this.collection[ idx ]
   }
 
   getAll(): CID[] {
-    return this.memoryCollection
+    return this.collection
   }
 
   indexOf(item: CID): number {
-    return this.memoryCollection.map(
+    return this.collection.map(
       c => c.toString()
     ).indexOf(
       item.toString()
@@ -77,11 +77,11 @@ export class Repo extends Repository<CID[], CID> {
   }
 
   length(): number {
-    return this.memoryCollection.length
+    return this.collection.length
   }
 
   newest(): CID {
-    return this.memoryCollection[ this.memoryCollection.length - 1 ]
+    return this.collection[ this.collection.length - 1 ]
   }
 
 }

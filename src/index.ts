@@ -1,4 +1,5 @@
 import localforage from "localforage"
+import { delegationChains } from "@ucans/core"
 
 import * as Auth from "./auth.js"
 import * as CIDLog from "./repositories/cid-log.js"
@@ -7,6 +8,7 @@ import * as DID from "./did/local.js"
 import * as Events from "./events.js"
 import * as Extension from "./extension/index.js"
 import * as FileSystemData from "./fs/data.js"
+import * as Ucan from "./ucan/index.js"
 import * as UcanRepository from "./repositories/ucans.js"
 
 import { Account, Crypto, Depot, Identifier, Manners, Storage } from "./components.js"
@@ -212,8 +214,15 @@ export async function assemble<M extends Mode>(config: Configuration<M>, compone
   // Is connected?
   async function isConnected() {
     // TODO: Not sure yet if the audience will be the identity DID or agent DID
-    const audience = DID.agent(components.crypto)
-    const accountChains = ucansRepository.audienceChains(audience)
+    const audience = await DID.agent(components.crypto)
+    const audienceUcans = ucansRepository.audienceUcans(audience)
+    const accountUcans = audienceUcans.filter(components.account.ucanIdentification)
+
+    delegationChains(
+      await Ucan.plugins(components.crypto)
+    )(
+
+    )
 
     // TODO:
     // Depends on the mode what happens here I guess.

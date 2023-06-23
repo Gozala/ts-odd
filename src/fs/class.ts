@@ -445,15 +445,10 @@ export class FileSystem {
       })
     })
 
-    // Create a single UCAN containing all proofs
-    // TODO: This isn't possible with UCAN v0.3
-    //       Use rs-ucan or ts-ucan.
-    const proof = proofs[ 0 ]
-
     // Publish
     const signal = mutationOptions.skipPublish === true
       ? Promise.resolve(FileSystem.statusNotPublishing)
-      : this.publish(dataRoot, proof)
+      : this.publish(dataRoot, proofs)
 
     // Fin
     return {
@@ -559,11 +554,14 @@ export class FileSystem {
   }
 
 
-  private debouncedDataRootUpdate = debounce(async (args: [ dataRoot: CID, proof: Ucan ][]): Promise<PublishingStatus[]> => {
-    const [ dataRoot, proof ] = args[ args.length - 1 ]
-    const { success } = await this.dependencies.reference.dataRoot.update(
+  private debouncedDataRootUpdate = debounce(async (args: [ dataRoot: CID, proofs: Ucan[] ][]): Promise<PublishingStatus[]> => {
+    const [ dataRoot, proofs ] = args[ args.length - 1 ]
+
+    await this.dependencies.depot.flush(dataRoot, proofs)
+
+    const { success } = await this.dependencies.account.updateDataRoot(
       dataRoot,
-      proof
+      proofs
     )
 
     let status: PublishingStatus
@@ -589,12 +587,12 @@ export class FileSystem {
    */
   private async publish(
     dataRoot: CID,
-    proof: Ucan
+    proofs: Ucan[]
   ): Promise<PublishingStatus> {
     if (this.localOnly) return { persisted: true, localOnly: true }
 
     await this.dependencies.reference.repositories.cidLog.add(dataRoot)
-    const debounceResult = await this.debouncedDataRootUpdate(dataRoot, proof)
+    const debounceResult = await this.debouncedDataRootUpdate(dataRoot, proofs)
 
     // The type of `debounceResult` is not correct, issue with `@types/debounce-promise`
     return debounceResult as unknown as PublishingStatus

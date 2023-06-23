@@ -1,10 +1,7 @@
-import * as Path from "../path/index.js"
 import * as Storage from "../components/storage/implementation"
 import * as Ucan from "../ucan/index.js"
 
 import Repository, { RepositoryOptions } from "../repository.js"
-import { DistinctivePath } from "../path/index.js"
-import { DelegationChain, SUPERUSER } from "@ucans/core"
 
 
 export function create({ storage }: { storage: Storage.Implementation }): Promise<Repo> {
@@ -95,10 +92,6 @@ export class Repo extends Repository<Collection, Ucan.Ucan> {
 
 
   // LOOKUPS
-
-  audienceChains(audience: string): DelegationChain[] {
-    // TODO
-  }
 
   audienceUcans(audience: string): Ucan.Ucan[] {
     return this.indexedByAudience[ audience ]

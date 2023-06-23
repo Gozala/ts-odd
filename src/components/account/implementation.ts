@@ -1,3 +1,4 @@
+import { CID } from "../../common/cid.js"
 import { Ucan } from "../../ucan/index.js"
 
 
@@ -30,7 +31,7 @@ export type Implementation = {
   /**
    * How to update the data root, the top-level pointer of the file system.
    */
-  updateDataRoot: (accountUcans: Ucan[]) => Promise<{ ok: true } | { ok: false, reason: string }>
+  updateDataRoot: (dataRoot: CID, proofs: Ucan[]) => Promise<{ ok: true } | { ok: false, reason: string }>
 
 
   // DIDS & UCANS

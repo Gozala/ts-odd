@@ -9,9 +9,9 @@ export type RepositoryOptions = {
 
 export default abstract class Repository<C, I> {
 
-  private memoryCollection: C
-  private storage: Storage.Implementation
-  private storageName: string
+  collection: C
+  storage: Storage.Implementation
+  storageName: string
 
   abstract emptyCollection(): C
   abstract mergeCollections(a: C, b: C): C
@@ -19,7 +19,7 @@ export default abstract class Repository<C, I> {
 
 
   constructor({ storage, storageName }: RepositoryOptions) {
-    this.memoryCollection = this.emptyCollection()
+    this.collection = this.emptyCollection()
     this.storage = storage
     this.storageName = storageName
   }
@@ -40,20 +40,20 @@ export default abstract class Repository<C, I> {
   async add(newItems: I[]): Promise<void> {
     const col = await newItems.reduce(
       async (acc: Promise<C>, item) => this.mergeCollections(await acc, await this.toCollection(item)),
-      Promise.resolve(this.memoryCollection)
+      Promise.resolve(this.collection)
     )
 
-    this.memoryCollection = col
+    this.collection = col
     this.collectionUpdateCallback(col)
 
     await this.storage.setItem(
       this.storageName,
-      this.toJSON(this.memoryCollection)
+      this.toJSON(this.collection)
     )
   }
 
   clear(): Promise<void> {
-    this.memoryCollection = this.emptyCollection()
+    this.collection = this.emptyCollection()
     return this.storage.removeItem(this.storageName)
   }
 
