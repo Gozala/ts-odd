@@ -35,7 +35,7 @@ export const login = ({ crypto, identifier }: LoginDependencies) => async () => 
     })
 
   } else {
-    // Setup device linking consumer
+    // TODO: Setup device linking consumer
     // Request capabilities
 
   }

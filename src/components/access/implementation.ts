@@ -1,13 +1,13 @@
 import * as Events from "../../events.js"
 
 import { EventEmitter } from "../../events.js"
-import { Permissions } from "../../permissions.js"
+import { Query } from "../../access/query.js"
 import { Ucan } from "../../ucan/index.js"
 
 
 export type RequestOptions = {
   extraParams?: Record<string, string>
-  permissions?: Permissions
+  query?: Query
   returnUrl?: string
 }
 

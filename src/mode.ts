@@ -1,4 +1,5 @@
 import { Account } from "./components.js"
+import { RequestOptions } from "./components/access/implementation.js"
 
 
 // 🧩
@@ -10,7 +11,7 @@ export type Mode = "authority" | "delegate"
 export type AuthorityMode = {
   mode: "authority"
 
-  capabilities: {
+  access: {
     provide: () => Promise<void>
   }
 } & AuthenticationStrategy
@@ -19,7 +20,7 @@ export type AuthorityMode = {
 export type DelegateMode = {
   mode: "delegate"
 
-  capabilities: {
+  access: {
     request: (options: RequestOptions) => Promise<void>
   }
 }
