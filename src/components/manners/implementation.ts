@@ -4,7 +4,6 @@ import type { Configuration } from "../../configuration.js"
 
 import * as Crypto from "../../components/crypto/implementation.js"
 import * as Depot from "../../components/depot/implementation.js"
-import * as Reference from "../../components/reference/implementation.js"
 import * as Storage from "../../components/storage/implementation.js"
 
 import * as FS from "../../fs/types.js"
@@ -19,7 +18,6 @@ export type ImplementationOptions = {
 export type DataComponents = {
   crypto: Crypto.Implementation
   depot: Depot.Implementation
-  reference: Reference.Implementation
   storage: Storage.Implementation
 }
 

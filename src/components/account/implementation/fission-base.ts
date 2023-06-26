@@ -2,6 +2,7 @@ import * as Fission from "./fission/index.js"
 import * as Ucan from "../../../ucan/index.js"
 
 import { Implementation } from "../implementation.js"
+import { CID } from "../../../common/index.js"
 import { Crypto, DNS } from "../../../components.js"
 
 
@@ -96,24 +97,15 @@ export async function register(
 // DATA ROOT
 
 
-export async function canUpdateDataRoot(accountUcans: Ucan.Ucan[]): Promise<boolean> {
+export async function canUpdateDataRoot(capabilities: Ucan.Capability[]): Promise<boolean> {
   // TODO: Check if we have the capability to update the data root.
   //       Or in the case of the old Fission server, any account UCAN.
   return true
 }
 
 
-export async function updateDataRoot(accountUcans: Ucan.Ucan[]): Promise<void> {
-  //
-}
-
-
-
-// DIDS & UCANS
-
-
-export function ucanIdentification(ucan: Ucan.Ucan): boolean {
-  return ucan.payload.att.some(cap => cap.with.scheme.match(/^https?$/))
+export async function updateDataRoot(dataRoot: CID, proofs: Ucan.Ucan[]): Promise<{ ok: true } | { ok: false, reason: string }> {
+  return { ok: false, reason: "Not implemented yet" }
 }
 
 
@@ -129,6 +121,7 @@ export function implementation(
     canRegister: (...args) => canRegister(endpoints, dependencies, ...args),
     register: (...args) => register(endpoints, dependencies, ...args),
 
-    canUpdateDataRoot: (...args) => canUpdateDataRoot(endpoints, dependencies, ...args),
+    canUpdateDataRoot: (...args) => canUpdateDataRoot(...args),
+    updateDataRoot: (...args) => updateDataRoot(...args),
   }
 }

@@ -1,14 +1,11 @@
-import { Account } from "./components.js"
 import { AppInfo } from "./appInfo.js"
 import { hasProp, isString } from "./common/type-checks.js"
-import { appId, Permissions, ROOT_FILESYSTEM_PERMISSIONS } from "./permissions.js"
-import { RequestOptions } from "./components/capabilities/implementation.js"
 
 
 // CONFIGURATION
 
 
-export type Configuration<M extends Mode> = {
+export type Configuration = {
   namespace: string | AppInfo
 
   /**
@@ -69,52 +66,7 @@ export type Configuration<M extends Mode> = {
    *  file system is older than what this version of the ODD SDK supports.
    */
   userMessages?: UserMessages
-} & (
-    M extends "authority" ? {}
-    : M extends "delegate" ? {
-      /**
-       * Capabilities to ask a self-owned-login app.
-       */
-      permissions: Permissions
-    }
-    : never
-  )
-
-
-
-// MODE
-
-
-export type Mode = "authority" | "delegate"
-
-
-export type AuthorityMode = {
-  mode: "authority"
-
-  capabilities: {
-    provide: () => Promise<void>
-  }
-} & AuthenticationStrategy
-
-
-export type DelegateMode = {
-  mode: "delegate"
-
-  capabilities: {
-    request: (options: RequestOptions) => Promise<void>
-  }
 }
-
-
-export type AuthenticationStrategy = Account.Implementation & {
-  login: () => Promise<void>
-}
-
-
-export type ProgramPropertiesForMode<M extends Mode>
-  = M extends "authority" ? AuthorityMode
-  : M extends "delegate" ? DelegateMode
-  : never
 
 
 
@@ -133,12 +85,16 @@ export type UserMessages = {
 // 🛠
 
 
-export function addRootFileSystemPermissions(config: Configuration<"delegate">): Configuration<"delegate"> {
-  return { ...config, permissions: { ...config.permissions, ...ROOT_FILESYSTEM_PERMISSIONS } }
+/**
+ * App identifier.
+ */
+export function appId(app: AppInfo): string {
+  return `${app.creator}/${app.name}`
 }
 
-// export function mode<M extends Mode = "authority">(config: Configuration<M>): "authority"
-// export function mode<M extends Mode = "delegate">(config: Configuration<M>): "delegate"
+/**
+ * What mode is your program configured for?
+ */
 export function mode<M extends Mode>(config: Configuration<M>): "authority" | "delegate" {
   return hasProp(config, "permissions") ? "delegate" : "authority"
 }

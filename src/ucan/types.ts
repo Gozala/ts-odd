@@ -2,6 +2,7 @@ import * as Ucans from "@ucans/core"
 
 
 export { Capability, Ucan } from "@ucans/core"
+export type Facts = Record<string, unknown>
 
 
 export type BuildParams = {

@@ -26,7 +26,7 @@ export type Implementation = {
   /**
    * Do we have the ability to update the data root?
    */
-  canUpdateDataRoot: (capabilities: Capability[]) => Promise<boolean>
+  canUpdateDataRoot: (capabilities: Capability[]) => Promise<boolean> // TODO: Also provide UCAN chain(s)
 
   /**
    * How to update the data root, the top-level pointer of the file system.

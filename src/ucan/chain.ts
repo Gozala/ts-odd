@@ -1,5 +1,5 @@
 import { Repo } from "../repositories/ucans.js"
-import { Capability, Ucan } from "./types.js"
+import { Capability, Facts, Ucan } from "./types.js"
 
 
 export function listCapabilities(
@@ -15,5 +15,24 @@ export function listCapabilities(
       return acc
     },
     caps
+  )
+}
+
+export function listFacts(
+  repo: Repo,
+  ucan: Ucan
+): Facts {
+  const facts = (ucan.payload.fct || []).reduce((acc, f) => {
+    return { ...acc, ...f }
+  }, {})
+
+  const proofs = ucan.payload.prf.map(repo.getByCID)
+
+  return proofs.reduce(
+    (acc: Facts, maybeUcan): Facts => {
+      if (maybeUcan) return { ...acc, ...listFacts(repo, maybeUcan) }
+      return acc
+    },
+    facts
   )
 }

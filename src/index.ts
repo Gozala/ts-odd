@@ -222,6 +222,10 @@ export async function assemble<M extends Mode>(config: Configuration<M>, compone
       ucan => UcanChain.listCapabilities(ucansRepository, ucan)
     )
 
+    if (Config.mode(config) === "delegate") {
+      components.account.canUpdateDataRoot(capabilities)
+    }
+
     // TODO:
     // Depends on the mode what happens here I guess.
     // I was thinking the delegate mode should only call `account.canUpdateDataRoot()`
