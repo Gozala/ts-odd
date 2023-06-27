@@ -1,6 +1,6 @@
 import { AppInfo } from "./appInfo.js"
 import { Mode } from "./mode.js"
-import { hasProp, isString } from "./common/type-checks.js"
+import { isString } from "./common/type-checks.js"
 import { Query as AccessQuery } from "./access/query.js"
 
 
@@ -11,16 +11,9 @@ export type Configuration<M extends Mode> = {
   namespace: string | AppInfo
 
   /**
-   * Enable debug mode.
-   *
-   * @default false
+   * Enable debug mode and configure it if needed.
    */
-  debug?: boolean
-
-  /**
-   * Debugging settings.
-   */
-  debugging?: {
+  debug?: boolean | {
     /**
     * Should I emit window post messages with session and filesystem information?
     *
@@ -68,18 +61,30 @@ export type Configuration<M extends Mode> = {
    *  file system is older than what this version of the ODD SDK supports.
    */
   userMessages?: UserMessages
-} & (
-    M extends "authority" ? {
-      mode: "authority"
-    }
-    : M extends "delegate" ? {
-      mode: "delegate"
-      access: {
-        request: AccessQuery[]
-      }
-    }
-    : never
-  )
+} & PropertiesForMode<M>
+
+
+
+// MODE
+
+
+export type AuthorityMode = {
+  mode: "authority"
+}
+
+
+export type DelegateMode = {
+  mode: "delegate"
+  access: {
+    request: AccessQuery[]
+  }
+}
+
+
+export type PropertiesForMode<M extends Mode>
+  = M extends "authority" ? AuthorityMode
+  : M extends "delegate" ? DelegateMode
+  : never
 
 
 
@@ -103,6 +108,20 @@ export type UserMessages = {
  */
 export function appId(app: AppInfo): string {
   return `${app.creator}/${app.name}`
+}
+
+/**
+ * Check if a configuration is set to the `authority` mode.
+ */
+export function isAuthorityMode<M extends "authority">(config: Configuration<M>): config is Configuration<M> {
+  return config.mode === "authority"
+}
+
+/**
+ * Check if a configuration is set to the `delegate` mode.
+ */
+export function isDelegateMode<M extends "delegate">(config: Configuration<M>): config is Configuration<M> {
+  return config.mode === "delegate"
 }
 
 /**

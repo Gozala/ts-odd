@@ -15,14 +15,9 @@ import { Account, Crypto, Depot, Identifier, Manners, Storage } from "./componen
 import { Components } from "./components.js"
 import { Configuration, namespace } from "./configuration.js"
 import { FileSystem } from "./fs/class.js"
-import { Mode, ProgramPropertiesForMode } from "./mode.js"
+import { Mode } from "./mode.js"
 import { loadFileSystem } from "./fileSystem.js"
-
-
-// TYPES
-
-
-import { type RecoverFileSystemParams } from "./fs/types/params.js"
+import { RequestOptions } from "./components/access/implementation.js"
 
 
 // IMPLEMENTATIONS
@@ -55,7 +50,7 @@ export { FileSystem } from "./fs/class.js"
 // TYPES & CONSTANTS
 
 
-export type Program<M extends Mode> = ProgramPropertiesForMode<M> & ShortHands & Events.ListenTo<Events.All> & {
+export type Program<M extends Mode> = {
   /**
    * Components used to build this program.
    */
@@ -79,8 +74,8 @@ export type Program<M extends Mode> = ProgramPropertiesForMode<M> & ShortHands &
    * file system based on what is configured, and if mutation is considered,
    * to update the data root associated with the file system.
    */
-  isConnected: () => { connected: true } | { connected: false, reason: string }
-}
+  isConnected: () => Promise<{ connected: true } | { connected: false, reason: string }>
+} & ShortHands & Events.ListenTo<Events.All> & ProgramPropertiesForMode<M>
 
 
 export enum ProgramError {
@@ -99,15 +94,35 @@ export type FileSystemShortHands = {
   addSampleData: (fs: FileSystem) => Promise<void>
 
   /**
-   * Load the file system of a given user.
+   * Load the file system associated with the account system.
    */
-  load: (username: string) => Promise<FileSystem>
-
-  /**
-   * Recover a file system.
-   */
-  recover: (params: RecoverFileSystemParams) => Promise<{ success: boolean }>
+  load: () => Promise<FileSystem>
 }
+
+
+export type AuthorityMode = {
+  access: {
+    provide: () => Promise<void>
+  }
+} & AuthenticationStrategy
+
+
+export type DelegateMode = {
+  access: {
+    request: (options: RequestOptions) => Promise<void>
+  }
+}
+
+
+export type AuthenticationStrategy = Account.Implementation & {
+  login: () => Promise<void>
+}
+
+
+export type ProgramPropertiesForMode<M extends Mode>
+  = M extends "authority" ? AuthorityMode
+  : M extends "delegate" ? DelegateMode
+  : never
 
 
 
@@ -147,7 +162,7 @@ export async function program<M extends Mode>(settings: Partial<Components> & Co
 // PREDEFINED COMPONENTS
 
 
-// TODO
+// TODO: Add back predefined components
 
 
 
@@ -172,46 +187,54 @@ export async function assemble<M extends Mode>(config: Configuration<M>, compone
 
   // Event emitters
   const fsEvents = Events.createEmitter<Events.FileSystem>()
-  const allEvents = fsEvents // Events.merge()
+  const allEvents = fsEvents
 
   // Create repositories
   const cidLog = await CIDLog.create({ storage: components.storage })
   const ucansRepository = await UcanRepository.create({ storage: components.storage })
 
   // Mode implementation
-  const modeImplementation = (() => {
-    switch (config.mode) {
-      case "authority": return {
+  let modeImplementation: ProgramPropertiesForMode<M>
+
+  switch (config.mode) {
+    case "authority":
+      const a: AuthorityMode = {
         login: Auth.login({ crypto, identifier }),
 
-        capabilities: {
-          provide: () => { } // TODO
+        ...components.account,
+
+        access: {
+          provide: async () => { } // TODO
         }
       }
 
-      case "delegate": return {
-        capabilities: {
-          request: () => { } // TODO
+      modeImplementation = a as ProgramPropertiesForMode<M>
+      break;
+
+    case "delegate":
+      const d: DelegateMode = {
+        access: {
+          request: async () => { } // TODO
         }
       }
-    }
-  })()
+
+      modeImplementation = d as ProgramPropertiesForMode<M>
+      break;
+  }
 
   // Shorthands
-  const shorthands = {
-    // DIDs
+  const shorthands: ShortHands = {
     agentDID: () => DID.agent(components.crypto),
     sharingDID: () => DID.sharing(components.crypto),
+  }
 
-    // File system
-    fileSystem: {
-      addSampleData: (fs: FileSystem) => FileSystemData.addSampleData(fs),
-      load: () => loadFileSystem({ config, dependencies: components, eventEmitter: fsEvents }),
-    }
+  const fileSystemShortHands: FileSystemShortHands = {
+    addSampleData: (fs: FileSystem) => FileSystemData.addSampleData(fs),
+    load: () => loadFileSystem({ config, cidLog, dependencies: components, eventEmitter: fsEvents }),
   }
 
   // Is connected?
-  async function isConnected() {
+  async function isConnected(): Promise<{ connected: true } | { connected: false, reason: string }> {
     // Audience is always the identifier,
     // account system should delegate to the identifier (not the agent)
     const audience = await components.identifier.did()
@@ -229,7 +252,13 @@ export async function assemble<M extends Mode>(config: Configuration<M>, compone
         //       Something that would check if all needed capabilities are present?
         //
         //       Also need to check if we can write to the entire file system.
-        return components.account.canUpdateDataRoot(capabilities)
+        const canUpdateDataRoot = await components.account.canUpdateDataRoot(capabilities)
+        if (!canUpdateDataRoot) return {
+          connected: false,
+          reason: "Program does not have the ability to update the data root, but is expected to."
+        }
+
+        return { connected: true }
 
       case "delegate":
         const anyAccountQueries = config.access.request.some(
@@ -247,12 +276,18 @@ export async function assemble<M extends Mode>(config: Configuration<M>, compone
 
         if (anyAccountQueries && needsWriteAccess) {
           const canUpdateDataRoot = await components.account.canUpdateDataRoot(capabilities)
-          if (!canUpdateDataRoot) return canUpdateDataRoot
+          if (!canUpdateDataRoot) return {
+            connected: false,
+            reason: "Program does not have the ability to update the data root, but is expected to."
+          }
         }
 
         // TODO: Check if our received WNFS capabilities fulfil our access query
 
-        return true
+        return { connected: true }
+
+      default:
+        throw new Error("Invalid program mode")
     }
   }
 
@@ -263,6 +298,7 @@ export async function assemble<M extends Mode>(config: Configuration<M>, compone
     ...Events.listenTo(allEvents),
 
     configuration: { ...config },
+    fileSystem: { ...fileSystemShortHands },
 
     components,
     isConnected,
@@ -272,9 +308,9 @@ export async function assemble<M extends Mode>(config: Configuration<M>, compone
   // - Enable ODD extensions (if configured)
   // - Inject into global context (if configured)
   if (config.debug) {
-    const inject = config.debugging?.injectIntoGlobalContext === undefined
+    const inject = config.debug === true || config.debug?.injectIntoGlobalContext === undefined
       ? true
-      : config.debugging?.injectIntoGlobalContext
+      : config.debug?.injectIntoGlobalContext
 
     if (inject) {
       const container = globalThis as any
@@ -283,31 +319,33 @@ export async function assemble<M extends Mode>(config: Configuration<M>, compone
       container.__odd.programs[ namespace(config) ] = program
     }
 
-    const emitMessages = config.debugging?.emitWindowPostMessages === undefined
-      ? true
-      : config.debugging?.emitWindowPostMessages
+    // TODO: Re-enable extension
+    //
+    // const emitMessages = config.debugging?.emitWindowPostMessages === undefined
+    //   ? true
+    //   : config.debugging?.emitWindowPostMessages
 
-    if (emitMessages) {
-      const { connect, disconnect } = await Extension.create({
-        namespace: config.namespace,
-        capabilities: config.permissions,
-        dependencies: components,
-        eventEmitters: {
-          fileSystem: fsEvents
-        }
-      })
+    // if (emitMessages) {
+    //   const { connect, disconnect } = await Extension.create({
+    //     namespace: config.namespace,
+    //     capabilities: config.permissions,
+    //     dependencies: components,
+    //     eventEmitters: {
+    //       fileSystem: fsEvents
+    //     }
+    //   })
 
-      const container = globalThis as any
-      container.__odd = container.__odd || {}
-      container.__odd.extension = container.__odd.extension || {}
-      container.__odd.extension.connect = connect
-      container.__odd.extension.disconnect = disconnect
+    //   const container = globalThis as any
+    //   container.__odd = container.__odd || {}
+    //   container.__odd.extension = container.__odd.extension || {}
+    //   container.__odd.extension.connect = connect
+    //   container.__odd.extension.disconnect = disconnect
 
-      // Notify extension that the ODD SDK is ready
-      globalThis.postMessage({
-        id: "odd-devtools-ready-message",
-      })
-    }
+    //   // Notify extension that the ODD SDK is ready
+    //   globalThis.postMessage({
+    //     id: "odd-devtools-ready-message",
+    //   })
+    // }
   }
 
   // Fin
@@ -337,8 +375,12 @@ export async function gatherComponents<M extends Mode>(setup: Partial<Components
   const depot = setup.depot || await defaultDepotComponent({ storage }, config)
 
   return {
+    account,
+    channel,
     crypto,
     depot,
+    dns,
+    identifier,
     manners,
     storage,
   }
@@ -402,10 +444,30 @@ export async function isSupported(): Promise<boolean> {
 
 
 export function extractConfig<M extends Mode>(opts: Partial<Components> & Configuration<M>): Configuration<M> {
-  return {
+  const base = {
     namespace: opts.namespace,
     debug: opts.debug,
     fileSystem: opts.fileSystem,
     userMessages: opts.userMessages,
+  }
+
+  switch (opts.mode) {
+    case "authority":
+      const aMode: Config.AuthorityMode = {
+        mode: "authority"
+      }
+
+      const aConfig: Configuration<"authority"> = { ...base, ...aMode }
+      return aConfig as unknown as Configuration<M>
+
+    case "delegate":
+      const dMode: Config.DelegateMode = {
+        ...base,
+        mode: "delegate",
+        access: opts.access,
+      }
+
+      const dConfig: Configuration<"delegate"> = { ...base, ...dMode }
+      return dConfig as unknown as Configuration<M>
   }
 }

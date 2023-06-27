@@ -1,90 +1,16 @@
-import * as uint8arrays from "uint8arrays"
 import { webcrypto } from "one-webcrypto"
 import tweetnacl from "tweetnacl"
 
-import * as keystoreAES from "keystore-idb/aes/index.js"
-import * as keystoreIDB from "keystore-idb/constants.js"
-import { HashAlg, SymmAlg, SymmKeyLength } from "keystore-idb/types.js"
-import { RSAKeyStore } from "keystore-idb/rsa/index.js"
-import rsaOperations from "keystore-idb/rsa/index.js"
-
 import * as typeChecks from "../../../common/type-checks.js"
-import { Implementation, ImplementationOptions, VerifyArgs } from "../implementation.js"
-
-
-// AES
-
-
-export const aes = {
-  decrypt: aesDecrypt,
-  encrypt: aesEncrypt,
-  exportKey: aesExportKey,
-  genKey: aesGenKey,
-}
-
-
-export function importAesKey(key: Uint8Array, alg: SymmAlg): Promise<CryptoKey> {
-  return webcrypto.subtle.importKey(
-    "raw",
-    key,
-    {
-      name: alg,
-      length: SymmKeyLength.B256,
-    },
-    true,
-    [ "encrypt", "decrypt" ]
-  )
-}
-
-export async function aesDecrypt(encrypted: Uint8Array, key: CryptoKey | Uint8Array, alg: SymmAlg, iv?: Uint8Array): Promise<Uint8Array> {
-  const cryptoKey = typeChecks.isCryptoKey(key) ? key : await importAesKey(key, alg)
-  const decrypted = iv
-    ? await webcrypto.subtle.decrypt(
-      { name: alg, iv },
-      cryptoKey,
-      encrypted
-    )
-    // the keystore version prefixes the `iv` into the cipher text
-    : await keystoreAES.decryptBytes(encrypted, cryptoKey, { alg })
-
-  return new Uint8Array(decrypted)
-}
-
-export async function aesEncrypt(data: Uint8Array, key: CryptoKey | Uint8Array, alg: SymmAlg, iv?: Uint8Array): Promise<Uint8Array> {
-  const cryptoKey = typeChecks.isCryptoKey(key) ? key : await importAesKey(key, alg)
-
-  // the keystore version prefixes the `iv` into the cipher text
-  const encrypted = iv
-    ? await webcrypto.subtle.encrypt(
-      { name: alg, iv },
-      cryptoKey,
-      data
-    )
-    : await keystoreAES.encryptBytes(data, cryptoKey, { alg })
-
-  return new Uint8Array(encrypted)
-}
-
-export async function aesExportKey(key: CryptoKey): Promise<Uint8Array> {
-  const buffer = await webcrypto.subtle.exportKey("raw", key)
-  return new Uint8Array(buffer)
-}
-
-export function aesGenKey(alg: SymmAlg): Promise<CryptoKey> {
-  return keystoreAES.makeKey({ length: SymmKeyLength.B256, alg })
-}
+import { Implementation, VerifyArgs } from "../implementation.js"
 
 
 
-// DID
+// DID & UCAN
 
 
 export const did: Implementation[ "did" ] = {
   keyTypes: {
-    "bls12-381": {
-      magicBytes: new Uint8Array([ 0xea, 0x01 ]),
-      verify: () => { throw new Error("Not implemented") },
-    },
     "ed25519": {
       magicBytes: new Uint8Array([ 0xed, 0x01 ]),
       verify: ed25519Verify,
@@ -103,17 +29,17 @@ export async function ed25519Verify({ message, publicKey, signature }: VerifyArg
 
 
 export async function rsaVerify({ message, publicKey, signature }: VerifyArgs): Promise<boolean> {
-  return rsaOperations.verify(
-    message,
-    signature,
+  return webcrypto.subtle.verify(
+    { name: "RSASSA-PKCS1-v1_5", saltLength: 128 },
     await webcrypto.subtle.importKey(
       "spki",
       publicKey,
-      { name: keystoreIDB.RSA_WRITE_ALG, hash: RSA_HASHING_ALGORITHM },
+      { name: "RSA-OAEP", hash: "SHA-256" },
       false,
       [ "verify" ]
     ),
-    8
+    signature,
+    message,
   )
 }
 
@@ -129,78 +55,6 @@ export const hash = {
 
 export async function sha256(bytes: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(await webcrypto.subtle.digest("sha-256", bytes))
-}
-
-
-
-// KEYSTORE
-
-
-export function ksClearStore(ks: RSAKeyStore): Promise<void> {
-  return ks.destroy()
-}
-
-
-export async function ksDecrypt(ks: RSAKeyStore, cipherText: Uint8Array): Promise<Uint8Array> {
-  const exchangeKey = await ks.exchangeKey()
-
-  return rsaDecrypt(
-    cipherText,
-    exchangeKey.privateKey
-  )
-}
-
-export async function ksExportSymmKey(ks: RSAKeyStore, keyName: string): Promise<Uint8Array> {
-  if (await ks.keyExists(keyName) === false) {
-    throw new Error(`Expected a key under the name '${keyName}', but couldn't find anything`)
-    // We're throwing an error here so that the function `getSymmKey` below doesn't create a key.
-  }
-
-  const key = await ks.getSymmKey(keyName)
-  const raw = await webcrypto.subtle.exportKey("raw", key)
-
-  return new Uint8Array(raw)
-}
-
-export function ksGetAlgorithm(ks: RSAKeyStore): Promise<string> {
-  return Promise.resolve("rsa")
-}
-
-export function ksGetUcanAlgorithm(ks: RSAKeyStore): Promise<string> {
-  return Promise.resolve("RS256")
-}
-
-export function ksImportSymmKey(ks: RSAKeyStore, key: Uint8Array, name: string): Promise<void> {
-  return ks.importSymmKey(uint8arrays.toString(key, "base64pad"), name)
-}
-
-export function ksKeyExists(ks: RSAKeyStore, keyName: string): Promise<boolean> {
-  return ks.keyExists(keyName)
-}
-
-export async function ksPublicExchangeKey(ks: RSAKeyStore): Promise<Uint8Array> {
-  const keypair = await ks.exchangeKey()
-  const spki = await webcrypto.subtle.exportKey("spki", keypair.publicKey)
-
-  return new Uint8Array(spki)
-}
-
-export async function ksPublicWriteKey(ks: RSAKeyStore): Promise<Uint8Array> {
-  const keypair = await ks.writeKey()
-  const spki = await webcrypto.subtle.exportKey("spki", keypair.publicKey)
-
-  return new Uint8Array(spki)
-}
-
-export async function ksSign(ks: RSAKeyStore, message: Uint8Array): Promise<Uint8Array> {
-  const writeKey = await ks.writeKey()
-  const arrayBuffer = await rsaOperations.sign(
-    message,
-    writeKey.privateKey,
-    ks.cfg.charSize
-  )
-
-  return new Uint8Array(arrayBuffer)
 }
 
 
@@ -304,36 +158,11 @@ export function rsaGenKey(): Promise<CryptoKeyPair> {
 // 🛳
 
 
-export async function implementation(
-  { storeName, exchangeKeyName, writeKeyName }: ImplementationOptions
-): Promise<Implementation> {
-  const ks = await RSAKeyStore.init({
-    charSize: 8,
-    hashAlg: HashAlg.SHA_256,
-
-    storeName,
-    exchangeKeyName,
-    writeKeyName,
-  })
-
+export function implementation(): Implementation {
   return {
-    aes,
     did,
     hash,
     misc,
     rsa,
-
-    keystore: {
-      clearStore: (...args) => ksClearStore(ks, ...args),
-      decrypt: (...args) => ksDecrypt(ks, ...args),
-      exportSymmKey: (...args) => ksExportSymmKey(ks, ...args),
-      getAlgorithm: (...args) => ksGetAlgorithm(ks, ...args),
-      getUcanAlgorithm: (...args) => ksGetUcanAlgorithm(ks, ...args),
-      importSymmKey: (...args) => ksImportSymmKey(ks, ...args),
-      keyExists: (...args) => ksKeyExists(ks, ...args),
-      publicExchangeKey: (...args) => ksPublicExchangeKey(ks, ...args),
-      publicWriteKey: (...args) => ksPublicWriteKey(ks, ...args),
-      sign: (...args) => ksSign(ks, ...args),
-    },
   }
 }
