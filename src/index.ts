@@ -394,8 +394,6 @@ export async function gatherComponents<M extends Mode>(setup: Partial<Components
 export function defaultCryptoComponent<M extends Mode>(config: Configuration<M>): Promise<Crypto.Implementation> {
   return BrowserCrypto.implementation({
     storeName: namespace(config),
-    exchangeKeyName: "exchange-key",
-    writeKeyName: "write-key"
   })
 }
 

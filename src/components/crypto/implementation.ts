@@ -23,22 +23,19 @@ export type Implementation = {
     >
   }
 
-  hash: {
-    sha256: (bytes: Uint8Array) => Promise<Uint8Array>
-  }
-
   misc: {
     randomNumbers: (options: { amount: number }) => Uint8Array
   }
 
   rsa: {
-    // Used for exchange keys only
     decrypt: (data: Uint8Array, privateKey: CryptoKey | Uint8Array) => Promise<Uint8Array>
-    encrypt: (message: Uint8Array, publicKey: CryptoKey | Uint8Array) => Promise<Uint8Array>
-    exportPublicKey: (key: CryptoKey) => Promise<Uint8Array>
-    genKey: () => Promise<CryptoKeyPair>
+    generateKey: (keyUse: KeyUse) => Promise<CryptoKeyPair>
+    sign: (data: Uint8Array, signingKey: CryptoKeyPair) => Promise<Uint8Array>
   }
 }
+
+
+export type KeyUse = "exchange" | "sign"
 
 
 export type VerifyArgs = {

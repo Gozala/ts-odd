@@ -1,8 +1,8 @@
 import { webcrypto } from "one-webcrypto"
 import tweetnacl from "tweetnacl"
 
-import * as typeChecks from "../../../common/type-checks.js"
-import { Implementation, VerifyArgs } from "../implementation.js"
+import { Implementation, KeyUse, VerifyArgs } from "../implementation.js"
+import { isCryptoKey } from "../../../common/type-checks.js"
 
 
 
@@ -30,7 +30,7 @@ export async function ed25519Verify({ message, publicKey, signature }: VerifyArg
 
 export async function rsaVerify({ message, publicKey, signature }: VerifyArgs): Promise<boolean> {
   return webcrypto.subtle.verify(
-    { name: "RSASSA-PKCS1-v1_5", saltLength: 128 },
+    { name: RSA_SIGNING_ALGORITHM, saltLength: RSA_SALT_LENGTH },
     await webcrypto.subtle.importKey(
       "spki",
       publicKey,
@@ -41,20 +41,6 @@ export async function rsaVerify({ message, publicKey, signature }: VerifyArgs): 
     signature,
     message,
   )
-}
-
-
-
-// HASH
-
-
-export const hash = {
-  sha256
-}
-
-
-export async function sha256(bytes: Uint8Array): Promise<Uint8Array> {
-  return new Uint8Array(await webcrypto.subtle.digest("sha-256", bytes))
 }
 
 
@@ -78,38 +64,39 @@ export function randomNumbers(options: { amount: number }): Uint8Array {
 
 export const rsa = {
   decrypt: rsaDecrypt,
-  encrypt: rsaEncrypt,
-  exportPublicKey: rsaExportPublicKey,
-  genKey: rsaGenKey,
+  generateKey: rsaGenerateKey,
+  sign: rsaSign,
 }
 
 
-
-// RSA
-// ---
-// Exchange keys:
-
-
-export const RSA_ALGORITHM = "RSA-OAEP"
+export const RSA_EXCHANGE_ALGORITHM = "RSA-OAEP"
+export const RSA_SIGNING_ALGORITHM = "RSASSA-PKCS1-v1_5"
 export const RSA_HASHING_ALGORITHM = "SHA-256"
+export const RSA_SALT_LENGTH = 128
 
 
 export function importRsaKey(key: Uint8Array, keyUsages: KeyUsage[]): Promise<CryptoKey> {
   return webcrypto.subtle.importKey(
     "spki",
     key,
-    { name: RSA_ALGORITHM, hash: RSA_HASHING_ALGORITHM },
+    {
+      name: keyUsages.includes("decrypt") || keyUsages.includes("encrypt")
+        ? RSA_EXCHANGE_ALGORITHM
+        : RSA_SIGNING_ALGORITHM,
+      hash: RSA_HASHING_ALGORITHM
+    },
     false,
     keyUsages
   )
 }
 
-export async function rsaDecrypt(data: Uint8Array, privateKey: CryptoKey | Uint8Array): Promise<Uint8Array> {
+
+export async function rsaDecrypt(data: Uint8Array, privateKey: CryptoKey | Uint8Array) {
   const arrayBuffer = await webcrypto.subtle.decrypt(
     {
-      name: RSA_ALGORITHM
+      name: RSA_EXCHANGE_ALGORITHM
     },
-    typeChecks.isCryptoKey(privateKey)
+    isCryptoKey(privateKey)
       ? privateKey
       : await importRsaKey(privateKey, [ "decrypt" ])
     ,
@@ -119,38 +106,29 @@ export async function rsaDecrypt(data: Uint8Array, privateKey: CryptoKey | Uint8
   return new Uint8Array(arrayBuffer)
 }
 
-export async function rsaEncrypt(message: Uint8Array, publicKey: CryptoKey | Uint8Array): Promise<Uint8Array> {
-  const key = typeChecks.isCryptoKey(publicKey)
-    ? publicKey
-    : await importRsaKey(publicKey, [ "encrypt" ])
 
-  const arrayBuffer = await webcrypto.subtle.encrypt(
-    {
-      name: RSA_ALGORITHM
-    },
-    key,
-    message
-  )
-
-  return new Uint8Array(arrayBuffer)
-}
-
-export async function rsaExportPublicKey(key: CryptoKey): Promise<Uint8Array> {
-  const buffer = await webcrypto.subtle.exportKey("spki", key)
-  return new Uint8Array(buffer)
-}
-
-export function rsaGenKey(): Promise<CryptoKeyPair> {
+export function rsaGenerateKey(keyUse: KeyUse): Promise<CryptoKeyPair> {
   return webcrypto.subtle.generateKey(
     {
-      name: RSA_ALGORITHM,
+      name: keyUse === "exchange" ? RSA_EXCHANGE_ALGORITHM : RSA_SIGNING_ALGORITHM,
       modulusLength: 2048,
       publicExponent: new Uint8Array([ 0x01, 0x00, 0x01 ]),
       hash: { name: RSA_HASHING_ALGORITHM }
     },
-    true,
+    false,
     [ "encrypt", "decrypt" ]
   )
+}
+
+
+export async function rsaSign(data: Uint8Array, signingKey: CryptoKeyPair): Promise<Uint8Array> {
+  const arrayBuffer = await webcrypto.subtle.sign(
+    { name: RSA_SIGNING_ALGORITHM, saltLength: 128 },
+    signingKey.privateKey,
+    data
+  )
+
+  return new Uint8Array(arrayBuffer)
 }
 
 
@@ -161,7 +139,6 @@ export function rsaGenKey(): Promise<CryptoKeyPair> {
 export function implementation(): Implementation {
   return {
     did,
-    hash,
     misc,
     rsa,
   }

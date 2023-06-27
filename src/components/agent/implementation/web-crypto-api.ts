@@ -1,40 +1,73 @@
+import localforage from "localforage"
+
+import * as Crypto from "../../crypto/implementation.js"
+
 import { Implementation } from "../implementation.js"
+import { hasProp } from "../../../common/index.js"
+
+
+// 🛠️
+
+
+export async function createExchangeKey(crypto: Crypto.Implementation): Promise<CryptoKeyPair> {
+  return crypto.rsa.generateKey("exchange")
+}
+
+
+export async function createSigningKey(crypto: Crypto.Implementation): Promise<CryptoKeyPair> {
+  return crypto.rsa.generateKey("sign")
+}
+
+
+export async function ensureKey(store: LocalForage, name: string, keyCreator: () => Promise<CryptoKeyPair>): Promise<CryptoKeyPair> {
+  const e = await store.getItem(name)
+  if (e && hasProp(e, "alg")) return e as unknown as CryptoKeyPair
+
+  const k = await keyCreator()
+  await store.setItem(name, k)
+  return k
+}
+
+
+export function decrypt(
+  crypto: Crypto.Implementation,
+  data: Uint8Array,
+  exchangeKey: CryptoKeyPair
+): Promise<Uint8Array> {
+  return crypto.rsa.decrypt(data, exchangeKey.privateKey)
+}
+
+
+export function sign(
+  crypto: Crypto.Implementation,
+  data: Uint8Array,
+  signingKey: CryptoKeyPair
+): Promise<Uint8Array> {
+  return crypto.rsa.sign(data, signingKey)
+}
+
 
 
 // 🛳️
 
 
-export async function implementation(): Promise<Implementation> {
+export async function implementation(
+  { crypto, storeName }: { crypto: Crypto.Implementation, storeName: string }
+): Promise<Implementation> {
+  const store = localforage.createInstance({ name: storeName })
+
+  // Create keys if needed
+  const exchangeKey = await ensureKey(store, "exchange-key", () => createExchangeKey(crypto))
+  const signingKey = await ensureKey(store, "signing-key", () => createSigningKey(crypto))
+
   return {
-    /**
-     * Key pair used to make exchanges
-     * (eg. make an encrypted exchange)
-     */
-    exchangeKey: () => Promise<CryptoKeyPair>
+    exchangeKey: () => Promise.resolve(exchangeKey),
+    signingKey: () => Promise.resolve(signingKey),
 
-    /**
-     * Key pair used to sign data.
-     */
-    signingKey: () => Promise<CryptoKeyPair>
+    decrypt: data => decrypt(crypto, data, exchangeKey),
+    sign: data => decrypt(crypto, data, signingKey),
 
-    /**
-     * Decrypt something with the exchange key.
-     */
-    decrypt: (data: Uint8Array, exchangeKey: CryptoKeyPair) => Promise<Uint8Array>
-
-    /**
-     * Sign something with the signing key.
-     */
-    sign: (data: Uint8Array, signingKey: CryptoKeyPair) => Promise<Uint8Array>
-
-    /**
-     * This goes hand in hand with the DID `keyTypes` record from the crypto component.
-     */
-    keyAlgorithm: () => Promise<string>
-
-    /**
-     * The JWT algorithm string for agent UCANs.
-     */
-    ucanAlgorithm: () => Promise<string>
+    keyAlgorithm: () => Promise.resolve("rsa"),
+    ucanAlgorithm: () => Promise.resolve("RS256"),
   }
 }
