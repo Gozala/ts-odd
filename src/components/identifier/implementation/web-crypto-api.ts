@@ -1,31 +1,36 @@
+import { webcrypto } from "one-webcrypto"
+import localforage from "localforage"
+
+import * as Crypto from "../../crypto/implementation.js"
+import * as DID from "../../../did/index.js"
+import * as WebCryptoAPIAgent from "../../agent/implementation/web-crypto-api.js"
+
 import { Implementation } from "../implementation.js"
 
 
 // 🛳️
 
 
-export function implementation(): Implementation {
+export async function implementation(
+  { crypto, storeName }: { crypto: Crypto.Implementation, storeName: string }
+): Promise<Implementation> {
+  const store = localforage.createInstance({ name: storeName })
+  const signingKey = await WebCryptoAPIAgent.ensureKey(
+    store,
+    "signing-key",
+    () => WebCryptoAPIAgent.createSigningKey(crypto)
+  )
+
   return {
-    /**
-     * The DID belonging to the identifier.
-     *
-     * This'll be associated with your account and file system.
-     */
-    did: () => Promise<string>
+    did: async () => DID.publicKeyToDid(
+      crypto,
+      await webcrypto.subtle
+        .exportKey("spki", signingKey.publicKey)
+        .then(a => new Uint8Array(a)),
+      "rsa"
+    ),
 
-    /**
-     * For signing the agent delegation UCAN.
-     *
-     * The identifier system will always delegate to
-     * the agent (non-exportable web-crypto key-pair)
-     * so that future UCANs can be constructed easier
-     * (eg. not having to approve signing each time)
-     */
-    sign: (data: Uint8Array) => Promise<Uint8Array>
-
-    /**
-     * The JWT `alg` used in the agent delegation UCAN.
-     */
-    ucanAlgorithm: () => Promise<string>
+    sign: async data => WebCryptoAPIAgent.sign(crypto, data, signingKey),
+    ucanAlgorithm: async () => "RS256",
   }
 }
