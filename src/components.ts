@@ -1,4 +1,5 @@
 import * as Account from "./components/account/implementation.js"
+import * as Agent from "./components/agent/implementation.js"
 import * as Channel from "./components/channel/implementation.js"
 import * as Crypto from "./components/crypto/implementation.js"
 import * as Depot from "./components/depot/implementation.js"
@@ -13,6 +14,7 @@ import * as Storage from "./components/storage/implementation.js"
 
 export type Components = {
   account: Account.Implementation
+  agent: Agent.Implementation
   channel: Channel.Implementation
   crypto: Crypto.Implementation
   depot: Depot.Implementation
@@ -27,4 +29,4 @@ export type Components = {
 // CONVENIENCE EXPORTS
 
 
-export { Account, Channel, Crypto, Depot, DNS, Identifier, Manners, Storage }
+export { Account, Agent, Channel, Crypto, Depot, DNS, Identifier, Manners, Storage }

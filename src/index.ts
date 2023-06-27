@@ -4,14 +4,13 @@ import * as Auth from "./auth.js"
 import * as AccessQuery from "./access/query.js"
 import * as CIDLog from "./repositories/cid-log.js"
 import * as Config from "./configuration.js"
-import * as DID from "./did/local.js"
 import * as Events from "./events.js"
 import * as Extension from "./extension/index.js"
 import * as FileSystemData from "./fs/data.js"
 import * as UcanChain from "./ucan/chain.js"
 import * as UcanRepository from "./repositories/ucans.js"
 
-import { Account, Crypto, Depot, Identifier, Manners, Storage } from "./components.js"
+import { Account, Agent, Channel, Crypto, Depot, DNS, Identifier, Manners, Storage } from "./components.js"
 import { Components } from "./components.js"
 import { Configuration, namespace } from "./configuration.js"
 import { FileSystem } from "./fs/class.js"
@@ -23,10 +22,15 @@ import { RequestOptions } from "./components/access/implementation.js"
 // IMPLEMENTATIONS
 
 
-import * as BrowserCrypto from "./components/crypto/implementation/browser.js"
-import * as BrowserStorage from "./components/storage/implementation/browser.js"
+import * as DNSOverHTTPS from "./components/dns/implementation/dns-over-https.js"
+import * as FissionAccountsProduction from "./components/account/implementation/fission-production.js"
 import * as FissionIpfsProduction from "./components/depot/implementation/fission-ipfs-production.js"
+import * as FissionWebSocketChannelProduction from "./components/channel/implementation/fission-production.js"
+import * as IndexedDBStorage from "./components/storage/implementation/indexed-db.js"
 import * as ProperManners from "./components/manners/implementation/base.js"
+import * as WebCrypto from "./components/crypto/implementation/web-crypto-api.js"
+import * as WebCryptoAgent from "./components/agent/implementation/web-crypto-api.js"
+import * as WebCryptoIdentifier from "./components/identifier/implementation/web-crypto-api.js"
 
 
 // RE-EXPORTS
@@ -84,10 +88,7 @@ export enum ProgramError {
 }
 
 
-export type ShortHands = {
-  agentDID: () => Promise<string>
-  sharingDID: () => Promise<string>
-}
+export type ShortHands = {} // TODO: Add back DIDs? `agentDID` doesn't really make sense anymore.
 
 
 export type FileSystemShortHands = {
@@ -223,11 +224,6 @@ export async function assemble<M extends Mode>(config: Configuration<M>, compone
   }
 
   // Shorthands
-  const shorthands: ShortHands = {
-    agentDID: () => DID.agent(components.crypto),
-    sharingDID: () => DID.sharing(components.crypto),
-  }
-
   const fileSystemShortHands: FileSystemShortHands = {
     addSampleData: (fs: FileSystem) => FileSystemData.addSampleData(fs),
     load: () => loadFileSystem({ config, cidLog, dependencies: components, eventEmitter: fsEvents }),
@@ -294,7 +290,6 @@ export async function assemble<M extends Mode>(config: Configuration<M>, compone
   // Create `Program`
   const program = {
     ...modeImplementation,
-    ...shorthands,
     ...Events.listenTo(allEvents),
 
     configuration: { ...config },
@@ -368,14 +363,21 @@ export const compositions = {
 export async function gatherComponents<M extends Mode>(setup: Partial<Components> & Configuration<M>): Promise<Components> {
   const config = extractConfig(setup)
 
-  const crypto = setup.crypto || await defaultCryptoComponent(config)
+  const crypto = setup.crypto || defaultCryptoComponent()
+  const dns = setup.dns || defaultDNSComponent()
   const manners = setup.manners || defaultMannersComponent(config)
   const storage = setup.storage || defaultStorageComponent(config)
 
+  const agent = setup.agent || await defaultAgentComponent({ crypto }, config)
+  const identifier = setup.identifier || await defaultIdentifierComponent({ crypto }, config)
+  const account = setup.account || defaultAccountComponent({ crypto, dns })
+
+  const channel = setup.channel || defaultChannelComponent()
   const depot = setup.depot || await defaultDepotComponent({ storage }, config)
 
   return {
     account,
+    agent,
     channel,
     crypto,
     depot,
@@ -391,17 +393,55 @@ export async function gatherComponents<M extends Mode>(setup: Partial<Components
 // DEFAULT COMPONENTS
 
 
-export function defaultCryptoComponent<M extends Mode>(config: Configuration<M>): Promise<Crypto.Implementation> {
-  return BrowserCrypto.implementation({
-    storeName: namespace(config),
+export function defaultAccountComponent(
+  { crypto, dns }: { crypto: Crypto.Implementation, dns: DNS.Implementation },
+): Account.Implementation {
+  return FissionAccountsProduction.implementation({ crypto, dns })
+}
+
+
+export function defaultAgentComponent<M extends Mode>(
+  { crypto }: { crypto: Crypto.Implementation },
+  config: Configuration<M>
+): Promise<Agent.Implementation> {
+  return WebCryptoAgent.implementation({
+    crypto,
+    storeName: `${namespace(config)}/agent`,
   })
 }
 
-export function defaultDepotComponent<M extends Mode>({ storage }: { storage: Storage.Implementation }, config: Configuration<M>): Promise<Depot.Implementation> {
+
+export function defaultChannelComponent(): Channel.Implementation {
+  return FissionWebSocketChannelProduction.implementation()
+}
+
+
+export function defaultCryptoComponent(): Crypto.Implementation {
+  return WebCrypto.implementation()
+}
+
+export function defaultDepotComponent<M extends Mode>(
+  { storage }: { storage: Storage.Implementation },
+  config: Configuration<M>
+): Promise<Depot.Implementation> {
   return FissionIpfsProduction.implementation(
     storage,
     `${namespace(config)}/blockstore`
   )
+}
+
+export function defaultDNSComponent(): DNS.Implementation {
+  return DNSOverHTTPS.implementation()
+}
+
+export function defaultIdentifierComponent<M extends Mode>(
+  { crypto }: { crypto: Crypto.Implementation },
+  config: Configuration<M>
+): Promise<Identifier.Implementation> {
+  return WebCryptoIdentifier.implementation({
+    crypto,
+    storeName: `${namespace(config)}/identifier`,
+  })
 }
 
 export function defaultMannersComponent<M extends Mode>(config: Configuration<M>): Manners.Implementation {
@@ -411,7 +451,7 @@ export function defaultMannersComponent<M extends Mode>(config: Configuration<M>
 }
 
 export function defaultStorageComponent<M extends Mode>(config: Configuration<M>): Storage.Implementation {
-  return BrowserStorage.implementation({
+  return IndexedDBStorage.implementation({
     name: namespace(config)
   })
 }

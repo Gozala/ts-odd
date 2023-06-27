@@ -3,6 +3,7 @@ import * as Ucan from "../../../ucan/index.js"
 
 import { Implementation } from "../implementation.js"
 import { CID } from "../../../common/index.js"
+import { Query } from "../../../access/query.js"
 import { Crypto, DNS } from "../../../components.js"
 
 
@@ -104,8 +105,22 @@ export async function canUpdateDataRoot(capabilities: Ucan.Capability[]): Promis
 }
 
 
+export async function lookupDataRoot(): Promise<CID> {
+  // TODO
+}
+
+
 export async function updateDataRoot(dataRoot: CID, proofs: Ucan.Ucan[]): Promise<{ ok: true } | { ok: false, reason: string }> {
   return { ok: false, reason: "Not implemented yet" }
+}
+
+
+
+// UCANS
+
+
+export function provideUCANs(accessQuery: Query): Ucan.Ucan[] {
+  return [] // TODO
 }
 
 
@@ -123,5 +138,7 @@ export function implementation(
 
     canUpdateDataRoot: (...args) => canUpdateDataRoot(...args),
     updateDataRoot: (...args) => updateDataRoot(...args),
+
+    provideUCANs(accessQuery: Query): Ucan[]
   }
 }

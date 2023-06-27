@@ -30,7 +30,7 @@ export type Implementation = {
   canUpdateDataRoot: (capabilities: Capability[]) => Promise<boolean> // TODO: Also provide UCAN chain(s)
 
   /**
-   * Look
+   * Look up the data root.
    */
   lookupDataRoot: () => Promise<CID>
 
