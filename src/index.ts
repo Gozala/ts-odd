@@ -1,7 +1,7 @@
 import localforage from "localforage"
-import { delegationChains } from "@ucans/core"
 
 import * as Auth from "./auth.js"
+import * as AccessQuery from "./access/query.js"
 import * as CIDLog from "./repositories/cid-log.js"
 import * as Config from "./configuration.js"
 import * as DID from "./did/local.js"
@@ -13,8 +13,9 @@ import * as UcanRepository from "./repositories/ucans.js"
 
 import { Account, Crypto, Depot, Identifier, Manners, Storage } from "./components.js"
 import { Components } from "./components.js"
-import { Configuration, Mode, ProgramPropertiesForMode, namespace } from "./configuration.js"
+import { Configuration, namespace } from "./configuration.js"
 import { FileSystem } from "./fs/class.js"
+import { Mode, ProgramPropertiesForMode } from "./mode.js"
 import { loadFileSystem } from "./fileSystem.js"
 
 
@@ -42,7 +43,6 @@ export * from "./configuration.js"
 export * from "./common/cid.js"
 export * from "./common/types.js"
 export * from "./common/version.js"
-export * from "./permissions.js"
 
 export * as did from "./did/index.js"
 export * as fission from "./common/fission.js"
@@ -130,7 +130,7 @@ export type FileSystemShortHands = {
  * while `assemble` does not. Use the latter in case you want to bypass the indexedDB check,
  * which might not be needed, or available, in certain environments or using certain components.
  */
-export async function program(settings: Partial<Components> & Configuration): Promise<Program> {
+export async function program<M extends Mode>(settings: Partial<Components> & Configuration<M>): Promise<Program<M>> {
   if (!settings) throw new Error("Expected a settings object of the type `Partial<Components> & Configuration` as the first parameter")
 
   // Check if the browser and context is supported
@@ -169,7 +169,6 @@ export async function program(settings: Partial<Components> & Configuration): Pr
  */
 export async function assemble<M extends Mode>(config: Configuration<M>, components: Components): Promise<Program<M>> {
   const { crypto, identifier } = components
-  const mode = Config.mode(config)
 
   // Event emitters
   const fsEvents = Events.createEmitter<Events.FileSystem>()
@@ -181,7 +180,7 @@ export async function assemble<M extends Mode>(config: Configuration<M>, compone
 
   // Mode implementation
   const modeImplementation = (() => {
-    switch (mode) {
+    switch (config.mode) {
       case "authority": return {
         login: Auth.login({ crypto, identifier }),
 
@@ -213,8 +212,9 @@ export async function assemble<M extends Mode>(config: Configuration<M>, compone
 
   // Is connected?
   async function isConnected() {
-    // TODO: Not sure yet if the audience will be the identity DID or agent DID
-    const audience = await DID.agent(components.crypto)
+    // Audience is always the identifier,
+    // account system should delegate to the identifier (not the agent)
+    const audience = await components.identifier.did()
     const audienceUcans = ucansRepository.audienceUcans(audience)
 
     // TODO: This could be done better, waiting on rs-ucan integration
@@ -222,16 +222,38 @@ export async function assemble<M extends Mode>(config: Configuration<M>, compone
       ucan => UcanChain.listCapabilities(ucansRepository, ucan)
     )
 
-    if (Config.mode(config) === "delegate") {
-      components.account.canUpdateDataRoot(capabilities)
-    }
+    // 👀
+    switch (config.mode) {
+      case "authority":
+        // TODO: Do we need something like `account.hasSufficientCapabilities()` here?
+        //       Something that would check if all needed capabilities are present?
+        //
+        //       Also need to check if we can write to the entire file system.
+        return components.account.canUpdateDataRoot(capabilities)
 
-    // TODO:
-    // Depends on the mode what happens here I guess.
-    // I was thinking the delegate mode should only call `account.canUpdateDataRoot()`
-    // when write permissions have been asked (as opposed to solely asking for read permissions).
-    // Authority mode always expects to write, so it should always call it.
-    // Although there should probably be a `account.hasSufficientCapabilities()` for the authority mode.
+      case "delegate":
+        const anyAccountQueries = config.access.request.some(
+          qry => qry.query === "account"
+        )
+
+        const needsWriteAccess = config.access.request.reduce(
+          (acc, qry) => {
+            if (acc === true) return true
+            if (qry.query === "fileSystem") return AccessQuery.needsWriteAccess(qry)
+            return false
+          },
+          false
+        )
+
+        if (anyAccountQueries && needsWriteAccess) {
+          const canUpdateDataRoot = await components.account.canUpdateDataRoot(capabilities)
+          if (!canUpdateDataRoot) return canUpdateDataRoot
+        }
+
+        // TODO: Check if our received WNFS capabilities fulfil our access query
+
+        return true
+    }
   }
 
   // Create `Program`
@@ -301,42 +323,11 @@ export async function assemble<M extends Mode>(config: Configuration<M>, compone
  * Full component sets.
  */
 export const compositions = {
-  /**
-   * The default (Fission) stack using web crypto.
-   */
-  async fission(settings: Configuration & {
-    disableWnfs?: boolean
-    staging?: boolean
-
-    // Dependencies
-    crypto?: Crypto.Implementation
-    manners?: Manners.Implementation
-    storage?: Storage.Implementation
-  }): Promise<Components> {
-    const crypto = settings.crypto || await defaultCryptoComponent(settings)
-    const manners = settings.manners || defaultMannersComponent(settings)
-    const storage = settings.storage || defaultStorageComponent(settings)
-
-    const settingsWithComponents = { ...settings, crypto, manners, storage }
-
-    const r = await reference.fission(settingsWithComponents)
-    const d = await depot.fissionIPFS(settingsWithComponents)
-    const c = await capabilities.fissionLobby(settingsWithComponents)
-    const a = await auth.fissionWebCrypto({ ...settingsWithComponents, reference: r })
-
-    return {
-      capabilities: c,
-      depot: d,
-      reference: r,
-      crypto,
-      manners,
-      storage,
-    }
-  }
+  // TODO: Fission stack
 }
 
 
-export async function gatherComponents(setup: Partial<Components> & Configuration): Promise<Components> {
+export async function gatherComponents<M extends Mode>(setup: Partial<Components> & Configuration<M>): Promise<Components> {
   const config = extractConfig(setup)
 
   const crypto = setup.crypto || await defaultCryptoComponent(config)
@@ -358,7 +349,7 @@ export async function gatherComponents(setup: Partial<Components> & Configuratio
 // DEFAULT COMPONENTS
 
 
-export function defaultCryptoComponent(config: Configuration): Promise<Crypto.Implementation> {
+export function defaultCryptoComponent<M extends Mode>(config: Configuration<M>): Promise<Crypto.Implementation> {
   return BrowserCrypto.implementation({
     storeName: namespace(config),
     exchangeKeyName: "exchange-key",
@@ -366,20 +357,20 @@ export function defaultCryptoComponent(config: Configuration): Promise<Crypto.Im
   })
 }
 
-export function defaultDepotComponent({ storage }: { storage: Storage.Implementation }, config: Configuration): Promise<Depot.Implementation> {
+export function defaultDepotComponent<M extends Mode>({ storage }: { storage: Storage.Implementation }, config: Configuration<M>): Promise<Depot.Implementation> {
   return FissionIpfsProduction.implementation(
     storage,
     `${namespace(config)}/blockstore`
   )
 }
 
-export function defaultMannersComponent(config: Configuration): Manners.Implementation {
+export function defaultMannersComponent<M extends Mode>(config: Configuration<M>): Manners.Implementation {
   return ProperManners.implementation({
     configuration: config
   })
 }
 
-export function defaultStorageComponent(config: Configuration): Storage.Implementation {
+export function defaultStorageComponent<M extends Mode>(config: Configuration<M>): Storage.Implementation {
   return BrowserStorage.implementation({
     name: namespace(config)
   })
@@ -410,12 +401,11 @@ export async function isSupported(): Promise<boolean> {
 // 🛠
 
 
-export function extractConfig(opts: Partial<Components> & Configuration): Configuration {
+export function extractConfig<M extends Mode>(opts: Partial<Components> & Configuration<M>): Configuration<M> {
   return {
     namespace: opts.namespace,
     debug: opts.debug,
     fileSystem: opts.fileSystem,
-    permissions: opts.permissions,
     userMessages: opts.userMessages,
   }
 }

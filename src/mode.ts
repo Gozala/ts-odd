@@ -35,3 +35,12 @@ export type ProgramPropertiesForMode<M extends Mode>
   = M extends "authority" ? AuthorityMode
   : M extends "delegate" ? DelegateMode
   : never
+
+
+
+// 🛠️
+
+
+export function isMode(str: string): str is Mode {
+  return str === "authority" || str === "delegate"
+}

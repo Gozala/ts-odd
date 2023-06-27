@@ -17,7 +17,7 @@ export type Components = {
   crypto: Crypto.Implementation
   depot: Depot.Implementation
   dns: DNS.Implementation
-  identifier?: Identifier.Implementation
+  identifier: Identifier.Implementation
   manners: Manners.Implementation
   storage: Storage.Implementation
 }

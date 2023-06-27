@@ -2,6 +2,8 @@ import { BlockStore, PrivateDirectory, PrivateNode, PublicDirectory, Namefilter,
 import { CID } from "multiformats/cid"
 import debounce from "debounce-promise"
 
+import type { Repo as CIDLog } from "../repositories/cid-log.js"
+
 import * as Events from "../events.js"
 import * as Path from "../path/index.js"
 import * as Queries from "./queries.js"
@@ -30,6 +32,7 @@ export class FileSystem {
   constructor(
     public account: AssociatedIdentity,
     private blockStore: BlockStore,
+    private cidLog: CIDLog,
     private dependencies: Dependencies,
     private eventEmitter: EventEmitter<Events.FileSystem>,
     private localOnly: boolean,
@@ -47,7 +50,7 @@ export class FileSystem {
    * Creates a file system with an empty public tree & an empty private tree at the root.
    */
   static async empty(opts: FileSystemOptions): Promise<FileSystem> {
-    const { account, dependencies, eventEmitter, localOnly, settleTimeBeforePublish } = opts
+    const { account, cidLog, dependencies, eventEmitter, localOnly, settleTimeBeforePublish } = opts
 
     await WASM.load({ manners: dependencies.manners })
 
@@ -57,6 +60,7 @@ export class FileSystem {
     return new FileSystem(
       account,
       blockStore,
+      cidLog,
       dependencies,
       eventEmitter,
       localOnly || false,
@@ -69,7 +73,7 @@ export class FileSystem {
    * Loads an existing file system from a CID.
    */
   static async fromCID(cid: CID, opts: FileSystemOptions): Promise<FileSystem> {
-    const { account, dependencies, eventEmitter, localOnly, settleTimeBeforePublish } = opts
+    const { account, cidLog, dependencies, eventEmitter, localOnly, settleTimeBeforePublish } = opts
 
     await WASM.load({ manners: dependencies.manners })
 
@@ -79,6 +83,7 @@ export class FileSystem {
     return new FileSystem(
       account,
       blockStore,
+      cidLog,
       dependencies,
       eventEmitter,
       localOnly || false,
@@ -559,14 +564,14 @@ export class FileSystem {
 
     await this.dependencies.depot.flush(dataRoot, proofs)
 
-    const { success } = await this.dependencies.account.updateDataRoot(
+    const { ok } = await this.dependencies.account.updateDataRoot(
       dataRoot,
       proofs
     )
 
     let status: PublishingStatus
 
-    if (success) {
+    if (ok) {
       this.eventEmitter.emit("fileSystem:publish", { dataRoot })
       status = { persisted: true, localOnly: false }
     } else {
@@ -591,7 +596,7 @@ export class FileSystem {
   ): Promise<PublishingStatus> {
     if (this.localOnly) return { persisted: true, localOnly: true }
 
-    await this.dependencies.reference.repositories.cidLog.add(dataRoot)
+    await this.cidLog.add([ dataRoot ])
     const debounceResult = await this.debouncedDataRootUpdate(dataRoot, proofs)
 
     // The type of `debounceResult` is not correct, issue with `@types/debounce-promise`

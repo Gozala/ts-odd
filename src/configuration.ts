@@ -1,11 +1,13 @@
 import { AppInfo } from "./appInfo.js"
+import { Mode } from "./mode.js"
 import { hasProp, isString } from "./common/type-checks.js"
+import { Query as AccessQuery } from "./access/query.js"
 
 
 // CONFIGURATION
 
 
-export type Configuration = {
+export type Configuration<M extends Mode> = {
   namespace: string | AppInfo
 
   /**
@@ -66,7 +68,18 @@ export type Configuration = {
    *  file system is older than what this version of the ODD SDK supports.
    */
   userMessages?: UserMessages
-}
+} & (
+    M extends "authority" ? {
+      mode: "authority"
+    }
+    : M extends "delegate" ? {
+      mode: "delegate"
+      access: {
+        request: AccessQuery[]
+      }
+    }
+    : never
+  )
 
 
 
@@ -91,14 +104,6 @@ export type UserMessages = {
 export function appId(app: AppInfo): string {
   return `${app.creator}/${app.name}`
 }
-
-/**
- * What mode is your program configured for?
- */
-export function mode<M extends Mode>(config: Configuration<M>): "authority" | "delegate" {
-  return hasProp(config, "permissions") ? "delegate" : "authority"
-}
-
 
 /**
  * Generate a namespace string based on a configuration.

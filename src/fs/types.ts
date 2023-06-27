@@ -1,10 +1,12 @@
+import type { Repo as CIDLog } from "../repositories/cid-log.js"
+
 import * as Events from "../events.js"
 import * as Path from "../path/index.js"
 
 import { CID } from "../common/cid.js"
 import { EventEmitter } from "../events.js"
 import { Partition, Partitioned } from "../path/index.js"
-import { Crypto, Depot, Manners, Reference } from "../components.js"
+import { Account, Crypto, Depot, Manners } from "../components.js"
 
 
 export type AnySupportedDataType<V>
@@ -29,10 +31,10 @@ export type DataForType<D extends DataType, V = unknown>
   : never
 
 export type Dependencies = {
+  account: Account.Implementation
   crypto: Crypto.Implementation
   depot: Depot.Implementation
   manners: Manners.Implementation
-  reference: Reference.Implementation
 }
 
 export type DirectoryItem = {
@@ -47,6 +49,7 @@ export type DirectoryItemWithKind = DirectoryItem & {
 
 export type FileSystemOptions = {
   account: AssociatedIdentity
+  cidLog: CIDLog,
   dependencies: Dependencies
   eventEmitter: EventEmitter<Events.FileSystem>
   localOnly?: boolean

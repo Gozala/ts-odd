@@ -1,3 +1,4 @@
+import { Query } from "../../access/query.js"
 import { CID } from "../../common/cid.js"
 import { Capability, Ucan } from "../../ucan/index.js"
 
@@ -29,8 +30,21 @@ export type Implementation = {
   canUpdateDataRoot: (capabilities: Capability[]) => Promise<boolean> // TODO: Also provide UCAN chain(s)
 
   /**
+   * Look
+   */
+  lookupDataRoot: () => Promise<CID>
+
+  /**
    * How to update the data root, the top-level pointer of the file system.
    */
   updateDataRoot: (dataRoot: CID, proofs: Ucan[]) => Promise<{ ok: true } | { ok: false, reason: string }>
+
+
+  // UCAN
+
+  /**
+   * This delegates account access.
+   */
+  provideUCANs(accessQuery: Query): Ucan[]
 
 }

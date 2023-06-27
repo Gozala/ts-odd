@@ -2,23 +2,15 @@ import { CID } from "multiformats"
 
 import type { Configuration } from "../../configuration.js"
 
-import * as Crypto from "../../components/crypto/implementation.js"
 import * as Depot from "../../components/depot/implementation.js"
-import * as Storage from "../../components/storage/implementation.js"
-
 import * as FS from "../../fs/types.js"
+
 import { FileSystem } from "../../fs/class.js"
+import { Mode } from "../../mode.js"
 
 
-export type ImplementationOptions = {
-  configuration: Configuration
-}
-
-
-export type DataComponents = {
-  crypto: Crypto.Implementation
-  depot: Depot.Implementation
-  storage: Storage.Implementation
+export type ImplementationOptions<M extends Mode> = {
+  configuration: Configuration<M>
 }
 
 
@@ -34,10 +26,10 @@ export type Implementation = {
      * Various file system hooks.
      */
     hooks: {
-      afterLoadExisting: (fs: FileSystem, account: FS.AssociatedIdentity, dataComponents: DataComponents) => Promise<void>
-      afterLoadNew: (fs: FileSystem, account: FS.AssociatedIdentity, dataComponents: DataComponents) => Promise<void>
-      beforeLoadExisting: (cid: CID, account: FS.AssociatedIdentity, dataComponents: DataComponents) => Promise<void>
-      beforeLoadNew: (account: FS.AssociatedIdentity, dataComponents: DataComponents) => Promise<void>
+      afterLoadExisting: (fs: FileSystem, account: FS.AssociatedIdentity, depot: Depot.Implementation) => Promise<void>
+      afterLoadNew: (fs: FileSystem, account: FS.AssociatedIdentity, depot: Depot.Implementation) => Promise<void>
+      beforeLoadExisting: (cid: CID, account: FS.AssociatedIdentity, depot: Depot.Implementation) => Promise<void>
+      beforeLoadNew: (account: FS.AssociatedIdentity, depot: Depot.Implementation) => Promise<void>
     }
   }
 
